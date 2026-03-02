@@ -1,0 +1,22 @@
+# Secrets
+key.properties
+play-account.json
+local.properties
+*.jks
+
+# Gradle / build
+.gradle/
+build/
+**/build/
+app/release/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary scripts
+.codex_build_*.cmd
