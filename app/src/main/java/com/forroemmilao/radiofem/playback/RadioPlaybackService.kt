@@ -1,6 +1,7 @@
 package com.forroemmilao.radiofem.playback
 
 import android.content.Intent
+import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -10,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.forroemmilao.radiofem.BuildConfig
+import com.forroemmilao.radiofem.R
 import com.forroemmilao.radiofem.data.RadioRepository
 import com.forroemmilao.radiofem.data.Song
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +28,8 @@ class RadioPlaybackService : MediaSessionService() {
     companion object {
         const val ACTION_STOP_FROM_NOTIFICATION =
             "com.forroemmilao.radiofem.action.STOP_FROM_NOTIFICATION"
+        const val ACTION_TOGGLE_FROM_NOTIFICATION =
+            "com.forroemmilao.radiofem.action.TOGGLE_FROM_NOTIFICATION"
     }
 
     private val repository = RadioRepository()
@@ -37,6 +41,9 @@ class RadioPlaybackService : MediaSessionService() {
     private var lastLiveTitle = ""
     private var lastLiveStation = "Radio FEM"
     private var liveStreamUri = BuildConfig.STREAM_URL
+    private val notificationArtworkUri: Uri by lazy {
+        Uri.parse("android.resource://$packageName/${R.drawable.radio_bg}")
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -78,9 +85,24 @@ class RadioPlaybackService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP_FROM_NOTIFICATION) {
-            pauseAllPlayersAndStopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP_FROM_NOTIFICATION -> {
+                pauseAllPlayersAndStopSelf()
+                return START_NOT_STICKY
+            }
+
+            ACTION_TOGGLE_FROM_NOTIFICATION -> {
+                val currentPlayer = player ?: return START_STICKY
+                if (currentPlayer.isPlaying) {
+                    currentPlayer.pause()
+                } else {
+                    if (currentPlayer.playbackState == Player.STATE_IDLE) {
+                        currentPlayer.prepare()
+                    }
+                    currentPlayer.play()
+                }
+                return START_STICKY
+            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -158,6 +180,7 @@ class RadioPlaybackService : MediaSessionService() {
                         .setTitle(title.ifBlank { "Live Track" })
                         .setArtist(artist.ifBlank { "Radio FEM" })
                         .setAlbumTitle(stationName)
+                        .setArtworkUri(notificationArtworkUri)
                         .build()
                 )
                 .build()
@@ -206,6 +229,7 @@ class RadioPlaybackService : MediaSessionService() {
                 MediaMetadata.Builder()
                     .setTitle("RadioFEM Live")
                     .setArtist("Radio FEM")
+                    .setArtworkUri(notificationArtworkUri)
                     .build()
             )
             .build()

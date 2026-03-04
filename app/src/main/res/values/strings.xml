@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Radio FEM</string>
+    <string name="playback_channel_name">Radio playback</string>
+    <string name="playback_channel_description">Live player controls and status</string>
+    <string name="playback_notification_title_fallback">Radio FEM Live</string>
+    <string name="playback_notification_subtitle_fallback">Tap to listen</string>
+    <string name="notification_action_toggle">Play or pause</string>
+    <string name="notification_action_stop">Stop</string>
 </resources>

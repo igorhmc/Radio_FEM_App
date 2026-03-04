@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_root_big"
+    android:layout_width="match_parent"
+    android:layout_height="136dp"
+    android:background="@drawable/radio_bg"
+    android:paddingStart="14dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="12dp">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#7A000000" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notification_station_big"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#CCFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notification_title_big"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="#FFFFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notification_subtitle_big"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#E6FFFFFF"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="end|bottom"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/notification_toggle_big"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/notification_action_toggle"
+                android:padding="10dp"
+                android:src="@android:drawable/ic_media_play"
+                android:tint="#FFFFFFFF" />
+
+            <ImageButton
+                android:id="@+id/notification_stop_big"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="4dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/notification_action_stop"
+                android:padding="10dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="#FFFFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -26,8 +26,8 @@ android {
         applicationId = "com.forroemmilao.radiofem"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = 5
+        versionName = "1.0.3"
 
         buildConfigField("String", "BASE_URL", "\"https://radio.forroemmilao.com/\"")
         buildConfigField("String", "STATION_SHORTCODE", "\"radiofem\"")

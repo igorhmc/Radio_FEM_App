@@ -2,6 +2,7 @@ package com.forroemmilao.radiofem.ui
 
 import android.app.Application
 import android.content.ComponentName
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.forroemmilao.radiofem.BuildConfig
+import com.forroemmilao.radiofem.R
 import com.forroemmilao.radiofem.data.PodcastEpisodeResponse
 import com.forroemmilao.radiofem.data.PodcastResponse
 import com.forroemmilao.radiofem.data.RadioRepository
@@ -102,6 +104,8 @@ private data class ScheduleFetchWindow(
 
 class RadioViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = RadioRepository()
+    private val notificationArtworkUri: Uri =
+        Uri.parse("android.resource://${application.packageName}/${R.drawable.radio_bg}")
 
     private val _uiState = MutableStateFlow(RadioUiState())
     val uiState: StateFlow<RadioUiState> = _uiState.asStateFlow()
@@ -180,6 +184,7 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                 MediaMetadata.Builder()
                     .setTitle("RadioFEM Live")
                     .setArtist("Radio FEM")
+                    .setArtworkUri(notificationArtworkUri)
                     .build()
             )
             .build()
@@ -234,6 +239,7 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                 MediaMetadata.Builder()
                     .setTitle(episodeTitle.ifBlank { "Episode" })
                     .setArtist(podcastName)
+                    .setArtworkUri(notificationArtworkUri)
                     .build()
             )
             .build()
@@ -596,6 +602,7 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                     .setTitle(title.ifBlank { "Live Track" })
                     .setArtist(artist.ifBlank { "Radio FEM" })
                     .setAlbumTitle(_uiState.value.stationName.ifBlank { "Radio FEM" })
+                    .setArtworkUri(notificationArtworkUri)
                     .build()
             )
             .build()
