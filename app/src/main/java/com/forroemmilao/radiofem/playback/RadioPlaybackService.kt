@@ -28,8 +28,6 @@ class RadioPlaybackService : MediaSessionService() {
     companion object {
         const val ACTION_STOP_FROM_NOTIFICATION =
             "com.forroemmilao.radiofem.action.STOP_FROM_NOTIFICATION"
-        const val ACTION_TOGGLE_FROM_NOTIFICATION =
-            "com.forroemmilao.radiofem.action.TOGGLE_FROM_NOTIFICATION"
     }
 
     private val repository = RadioRepository()
@@ -85,24 +83,9 @@ class RadioPlaybackService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP_FROM_NOTIFICATION -> {
-                pauseAllPlayersAndStopSelf()
-                return START_NOT_STICKY
-            }
-
-            ACTION_TOGGLE_FROM_NOTIFICATION -> {
-                val currentPlayer = player ?: return START_STICKY
-                if (currentPlayer.isPlaying) {
-                    currentPlayer.pause()
-                } else {
-                    if (currentPlayer.playbackState == Player.STATE_IDLE) {
-                        currentPlayer.prepare()
-                    }
-                    currentPlayer.play()
-                }
-                return START_STICKY
-            }
+        if (intent?.action == ACTION_STOP_FROM_NOTIFICATION) {
+            pauseAllPlayersAndStopSelf()
+            return START_NOT_STICKY
         }
         return super.onStartCommand(intent, flags, startId)
     }
