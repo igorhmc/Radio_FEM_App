@@ -25,10 +25,10 @@ What still needs Play Console UI access:
 - The current service account can upload bundles, but it cannot commit store listing edits.
 
 2. Publish the privacy policy at a public URL
-- Recommended repo path: `docs/privacy-policy/index.html`
-- Recommended URL after enabling GitHub Pages:
-  - `https://igorhmc.github.io/Radio_FEM_App/privacy-policy/`
-- In GitHub, enable Pages for this repository with source `Deploy from a branch`, branch `main`, folder `/docs`.
+- Public URL confirmed:
+  - `https://radio.forroemmilao.com/privacy-policy.html`
+- Fallback copy in repo:
+  - `docs/privacy-policy/index.html`
 
 3. Complete Play Console mandatory forms
 - `Dashboard > Set up your app`
@@ -50,6 +50,8 @@ What still needs Play Console UI access:
   - Contact email: `info@radio.forroemmilao.com`
   - Website: `https://radio.forroemmilao.com`
 - Add the privacy policy URL after it is public.
+- Privacy policy URL to use:
+  - `https://radio.forroemmilao.com/privacy-policy.html`
 
 5. Move out of draft when Play Console shows all checks complete
 - Keep the current internal release as `draft` until all required declarations are accepted.
