@@ -9,8 +9,7 @@ Current release:
 
 What was completed from the repository:
 - Android App Bundle signed and uploaded to Play Console.
-- `en-US` store listing prepared with icon, feature graphic, screenshots, title, short description, and full description.
-- `pt-BR` store listing prepared locally in `android/app/src/main/play/listings/pt-BR`.
+- English-only (`en-US`) store listing prepared with icon, feature graphic, screenshots, title, short description, and full description.
 - Contact email and website prepared in `android/app/src/main/play/`.
 - Privacy policy page prepared in `docs/privacy-policy/index.html`.
 
@@ -67,5 +66,4 @@ Suggested Data safety review basis from the current codebase:
 Files prepared for Play metadata:
 - `android/app/src/main/play/`
 - `android/app/src/main/play/listings/en-US/`
-- `android/app/src/main/play/listings/pt-BR/`
 - `android/app/src/main/play/release-notes/`

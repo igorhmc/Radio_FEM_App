@@ -1,5 +1,0 @@
-Nova versao com migracao para Flutter:
-
-- O app da Radio FEM agora usa uma base compartilhada para Android e iPhone.
-- Streaming ao vivo, programacao, podcasts e contato foram migrados.
-- Icone, splash e pipeline de publicacao foram atualizados.
