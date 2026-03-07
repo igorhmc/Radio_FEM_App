@@ -1,0 +1,5 @@
+Flutter migration release:
+
+- Radio FEM is now running on a new Flutter codebase for Android and iPhone.
+- Live stream, schedule, podcasts, and contact sections were migrated.
+- Updated app icon, splash screen, and release pipeline.

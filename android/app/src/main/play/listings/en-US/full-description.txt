@@ -1,0 +1,20 @@
+Radio FEM is the official app of an independent and collaborative radio project created by Forró em Milao.
+Our mission is to connect people through Forró culture with a curated, high-quality, and research-driven musical experience. The station is built with artistic freedom and no commercial pressure, so the focus stays on cultural value, careful selection, and community.
+
+With the Radio FEM app, you can:
+
+- Listen to the live stream anytime.
+- See what is playing now.
+- Browse the program schedule in weekly and monthly views.
+- Navigate calendar periods and view programs for the selected week or month.
+- Explore podcasts and play episodes inside the app.
+- Control playback from notifications, headphones, and Bluetooth.
+- Contact the Radio FEM team directly from the app.
+
+Why Radio FEM:
+
+- Independent and collaborative radio identity.
+- Strong commitment to Brazilian roots and Forró culture.
+- Non-commercial curation focused on quality and authenticity.
+- A global bridge for listeners who love Forró.
+Take Radio FEM with you and stay connected to the sound, stories, and spirit of Forró.
