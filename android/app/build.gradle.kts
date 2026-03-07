@@ -7,6 +7,7 @@ plugins {
 }
 
 import java.util.Properties
+import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 
 val signingProps = Properties()
 val signingFile = rootProject.file("../key.properties")
@@ -70,5 +71,6 @@ flutter {
 play {
     serviceAccountCredentials.set(rootProject.file("../play-account.json"))
     track.set("internal")
+    releaseStatus.set(ReleaseStatus.DRAFT)
     defaultToAppBundles.set(true)
 }
