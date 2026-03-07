@@ -20,3 +20,9 @@ Thumbs.db
 
 # Temporary scripts
 .codex_build_*.cmd
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.tooling/
