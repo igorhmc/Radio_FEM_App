@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart' as bg;
 
 abstract class RadioPlaybackService {
   Stream<PlaybackStatus> get statusStream;
@@ -39,11 +42,17 @@ abstract class RadioPlaybackService {
 
   Future<PlaybackProgress> progress();
 
+  double get volume;
+
+  Future<double> setVolume(double value);
+
+  Future<double> changeVolumeBy(double delta);
+
   void dispose();
 }
 
 class JustAudioRadioPlaybackService implements RadioPlaybackService {
-  JustAudioRadioPlaybackService() {
+  JustAudioRadioPlaybackService() : _artUriFuture = _ensureArtworkUri() {
     _playerStateSubscription = _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed &&
           _mode == PlaybackMode.podcast) {
@@ -59,6 +68,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       _currentItem = _currentItem!.copyWith(duration: duration ?? Duration.zero);
       _mediaItemController.add(_currentItem);
     });
+    _volumeSubscription = _player.volumeStream.listen((_) {
+      _emitStatus();
+    });
     _emitStatus();
   }
 
@@ -67,9 +79,11 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       StreamController<PlaybackStatus>.broadcast();
   final StreamController<PlaybackMediaItem?> _mediaItemController =
       StreamController<PlaybackMediaItem?>.broadcast();
+  final Future<Uri> _artUriFuture;
 
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
+  StreamSubscription<double>? _volumeSubscription;
   PlaybackMode _mode = PlaybackMode.live;
   PlaybackMediaItem? _currentItem;
   bool _isDisposed = false;
@@ -79,6 +93,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
 
   @override
   Stream<PlaybackMediaItem?> get mediaItemStream => _mediaItemController.stream;
+
+  @override
+  double get volume => _player.volume;
 
   @override
   Future<void> play() => _player.play();
@@ -116,7 +133,18 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     );
     _mediaItemController.add(_currentItem);
     await _player.stop();
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(url),
+        tag: await _buildSystemMediaItem(
+          id: url,
+          album: stationName,
+          title: title.isEmpty ? 'Radio FEM ao vivo' : title,
+          artist: artist.isEmpty ? stationName : artist,
+          description: 'Transmissao ao vivo',
+        ),
+      ),
+    );
     await _player.play();
     _emitStatus();
   }
@@ -143,7 +171,18 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     );
     _mediaItemController.add(_currentItem);
     await _player.stop();
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(url),
+        tag: await _buildSystemMediaItem(
+          id: url,
+          album: podcastTitle,
+          title: title,
+          artist: podcastTitle,
+          description: description,
+        ),
+      ),
+    );
     await _player.play();
     _emitStatus();
   }
@@ -183,10 +222,24 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   }
 
   @override
+  Future<double> setVolume(double value) async {
+    final next = value.clamp(0.0, 1.0).toDouble();
+    await _player.setVolume(next);
+    _emitStatus();
+    return _player.volume;
+  }
+
+  @override
+  Future<double> changeVolumeBy(double delta) async {
+    return setVolume(_player.volume + delta);
+  }
+
+  @override
   void dispose() {
     _isDisposed = true;
     unawaited(_playerStateSubscription?.cancel());
     unawaited(_durationSubscription?.cancel());
+    unawaited(_volumeSubscription?.cancel());
     _statusController.close();
     _mediaItemController.close();
     unawaited(_player.dispose());
@@ -203,8 +256,42 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
             _player.processingState == ProcessingState.loading ||
             _player.processingState == ProcessingState.buffering,
         isLive: _mode == PlaybackMode.live,
+        volume: _player.volume,
       ),
     );
+  }
+
+  Future<bg.MediaItem> _buildSystemMediaItem({
+    required String id,
+    required String album,
+    required String title,
+    required String artist,
+    required String description,
+  }) async {
+    return bg.MediaItem(
+      id: id,
+      album: album,
+      title: title,
+      artist: artist,
+      displayTitle: title,
+      displaySubtitle: artist,
+      displayDescription: description,
+      artUri: await _artUriFuture,
+    );
+  }
+
+  static Future<Uri> _ensureArtworkUri() async {
+    final file = File(
+      '${Directory.systemTemp.path}/radio_fem_notification_artwork.png',
+    );
+    if (!await file.exists()) {
+      final asset = await rootBundle.load('assets/images/radio_bg.png');
+      await file.writeAsBytes(
+        asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),
+        flush: true,
+      );
+    }
+    return file.uri;
   }
 }
 
@@ -215,11 +302,13 @@ class PlaybackStatus {
     required this.isPlaying,
     required this.isBuffering,
     required this.isLive,
+    required this.volume,
   });
 
   final bool isPlaying;
   final bool isBuffering;
   final bool isLive;
+  final double volume;
 }
 
 class PlaybackMediaItem {

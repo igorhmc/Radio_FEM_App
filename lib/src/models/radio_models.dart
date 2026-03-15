@@ -163,6 +163,22 @@ class PodcastEpisode {
   }
 }
 
+class PartnerItem {
+  const PartnerItem({
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.websiteUrl,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final String description;
+  final String websiteUrl;
+  final String imageUrl;
+}
+
 Map<String, dynamic> _asMap(dynamic value) {
   if (value is Map<String, dynamic>) {
     return value;

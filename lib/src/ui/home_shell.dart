@@ -7,7 +7,7 @@ import '../config/app_config.dart';
 import '../controllers/radio_controller.dart';
 import '../models/radio_models.dart';
 
-enum _AppTab { player, schedule, podcasts, contact }
+enum _AppTab { player, schedule, podcasts, partners, contact }
 
 enum _ScheduleMode { weekly, monthly }
 
@@ -20,6 +20,19 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   _AppTab _currentTab = _AppTab.player;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentTab.index);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,33 +62,46 @@ class _HomeShellState extends State<HomeShell> {
             selectedIndex: _currentTab.index,
             onDestinationSelected: (index) {
               setState(() => _currentTab = _AppTab.values[index]);
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+              );
             },
             destinations: const <NavigationDestination>[
               NavigationDestination(
                 icon: Icon(Icons.graphic_eq_rounded),
-                label: 'Ao vivo',
+                label: 'Live',
               ),
               NavigationDestination(
                 icon: Icon(Icons.calendar_month_rounded),
-                label: 'Grade',
+                label: 'Schedule',
               ),
               NavigationDestination(
                 icon: Icon(Icons.mic_none_rounded),
                 label: 'Podcasts',
               ),
               NavigationDestination(
+                icon: Icon(Icons.handshake_outlined),
+                label: 'Partners',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.email_outlined),
-                label: 'Contato',
+                label: 'Info',
               ),
             ],
           ),
           body: SafeArea(
-            child: IndexedStack(
-              index: _currentTab.index,
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() => _currentTab = _AppTab.values[index]);
+              },
               children: const <Widget>[
                 _PlayerTab(),
                 _ScheduleTab(),
                 _PodcastsTab(),
+                _PartnersTab(),
                 _ContactTab(),
               ],
             ),
@@ -94,186 +120,480 @@ class _PlayerTab extends StatelessWidget {
     final controller = context.watch<RadioController>();
     final textTheme = Theme.of(context).textTheme;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-      child: Column(
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 620;
+        final heroHeight = isWide ? 380.0 : 316.0;
+        final currentTitle = controller.isLiveStreamMode
+            ? controller.nowPlayingTitle
+            : (controller.currentPodcastEpisodeTitle.isEmpty
+                  ? controller.nowPlayingTitle
+                  : controller.currentPodcastEpisodeTitle);
+        final currentSubtitle = controller.isLiveStreamMode
+            ? controller.nowPlayingArtist
+            : controller.nowPlayingArtist.trim().isEmpty
+            ? controller.playbackSourceLabel
+            : controller.nowPlayingArtist;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text(
-                    controller.stationName,
-                    textAlign: TextAlign.center,
-                    style: textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  Container(
+                    height: heroHeight,
+                    padding: EdgeInsets.all(isWide ? 28 : 22),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: const Color(0x33FFD34D),
+                      ),
+                      image: const DecorationImage(
+                        image: AssetImage('assets/images/radio_bg.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x55000000),
+                          blurRadius: 28,
+                          offset: Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            Color(0x8A140F0C),
+                            Color(0xD1120F0E),
+                            Color(0xF1110E0D),
+                          ],
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(isWide ? 28 : 22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: <Widget>[
+                                _InfoPill(
+                                  label: controller.playbackSourceLabel,
+                                  value: controller.isPlaying
+                                      ? 'Playing'
+                                      : 'Paused',
+                                ),
+                                _InfoPill(
+                                  label: controller.audienceWindowLabel,
+                                  value: controller.hasAudienceAnalytics
+                                      ? '${controller.listenersLast30Days}'
+                                      : 'Unavailable',
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              controller.stationName,
+                              style: textTheme.titleLarge?.copyWith(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              currentTitle,
+                              maxLines: isWide ? 3 : 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: (isWide
+                                      ? textTheme.displaySmall
+                                      : textTheme.headlineMedium)
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.02,
+                                  ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              currentSubtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.titleMedium?.copyWith(
+                                color: const Color(0xFFFFD34D),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (!controller.isLiveStreamMode &&
+                                controller.currentPodcastEpisodeDescription
+                                    .isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 12),
+                              Text(
+                                controller.currentPodcastEpisodeDescription,
+                                maxLines: isWide ? 3 : 4,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white70,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tocando agora',
-                    style: textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFFFFD34D),
+                  const SizedBox(height: 18),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          if (controller.isLoading || controller.isBuffering) ...<Widget>[
+                            const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          if (isWide)
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: controller.togglePlayPause,
+                                    icon: Icon(
+                                      controller.isPlaying
+                                          ? Icons.pause_circle_filled_rounded
+                                          : Icons.play_circle_fill_rounded,
+                                    ),
+                                    label: Text(
+                                      controller.isPlaying
+                                          ? 'Pause'
+                                          : 'Listen now',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await controller.refreshNowPlaying();
+                                      await controller.refreshAudienceSnapshot();
+                                    },
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: const Text('Refresh status'),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else ...<Widget>[
+                            FilledButton.icon(
+                              onPressed: controller.togglePlayPause,
+                              icon: Icon(
+                                controller.isPlaying
+                                    ? Icons.pause_circle_filled_rounded
+                                    : Icons.play_circle_fill_rounded,
+                              ),
+                              label: Text(
+                                controller.isPlaying
+                                    ? 'Pause'
+                                    : 'Listen now',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                await controller.refreshNowPlaying();
+                                await controller.refreshAudienceSnapshot();
+                              },
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Refresh status'),
+                            ),
+                          ],
+                          if (!controller.isLiveStreamMode) ...<Widget>[
+                            const SizedBox(height: 14),
+                            OutlinedButton(
+                              onPressed: controller.returnToLive,
+                              child: const Text('Back to live'),
+                            ),
+                            const SizedBox(height: 14),
+                            Slider(
+                              value: controller.podcastDuration.inMilliseconds == 0
+                                  ? 0
+                                  : controller.podcastPosition.inMilliseconds
+                                        .clamp(
+                                          0,
+                                          controller
+                                              .podcastDuration
+                                              .inMilliseconds,
+                                        )
+                                        .toDouble(),
+                              max: controller.podcastDuration.inMilliseconds <= 0
+                                  ? 1
+                                  : controller.podcastDuration.inMilliseconds
+                                        .toDouble(),
+                              onChanged:
+                                  controller.podcastDuration.inMilliseconds <= 0
+                                  ? null
+                                  : (value) {
+                                      controller.seekPodcastTo(
+                                        Duration(milliseconds: value.round()),
+                                      );
+                                    },
+                            ),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: <Widget>[
+                                Text(
+                                  _formatPlaybackTime(controller.podcastPosition),
+                                ),
+                                Text(
+                                  _formatPlaybackTime(controller.podcastDuration),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: <Widget>[
+                                OutlinedButton(
+                                  onPressed: () => controller.skipPodcastBy(
+                                    const Duration(seconds: -15),
+                                  ),
+                                  child: const Text('-15s'),
+                                ),
+                                OutlinedButton(
+                                  onPressed: () => controller.skipPodcastBy(
+                                    const Duration(seconds: 30),
+                                  ),
+                                  child: const Text('+30s'),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: <Widget>[
+                              _StatTile(
+                                label:
+                                    'Listeners in the ${controller.audienceWindowLabel.toLowerCase()}',
+                                value: controller.hasAudienceAnalytics
+                                    ? '${controller.listenersLast30Days}'
+                                    : 'Unavailable',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _TopCountriesCard(controller: controller),
+                          if (controller.apiErrorMessage != null) ...<Widget>[
+                            const SizedBox(height: 12),
+                            Text(
+                              controller.apiErrorMessage!,
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ],
+                          if (controller.playerErrorMessage != null) ...<Widget>[
+                            const SizedBox(height: 8),
+                            Text(
+                              controller.playerErrorMessage!,
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ],
+                          if (controller.audienceErrorMessage != null) ...<Widget>[
+                            const SizedBox(height: 8),
+                            Text(
+                              controller.audienceErrorMessage!,
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  if (controller.isLiveStreamMode) ...<Widget>[
-                    Text(
-                      controller.nowPlayingArtist,
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      controller.nowPlayingTitle,
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ] else ...<Widget>[
-                    Text(
-                      controller.currentPodcastEpisodeTitle.isEmpty
-                          ? controller.nowPlayingTitle
-                          : controller.currentPodcastEpisodeTitle,
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (controller
-                        .currentPodcastEpisodeDescription
-                        .isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Text(
-                        controller.currentPodcastEpisodeDescription,
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyMedium,
-                      ),
-                    ],
-                  ],
-                  const SizedBox(height: 10),
-                  Text(
-                    'Fonte: ${controller.playbackSourceLabel}',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFFFFD34D),
-                    ),
-                  ),
-                  if (!controller.isLiveStreamMode &&
-                      controller.nowPlayingArtist
-                          .trim()
-                          .isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Podcast: ${controller.nowPlayingArtist}',
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodySmall,
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          if (controller.isLoading || controller.isBuffering) ...<Widget>[
-            const CircularProgressIndicator(),
-            const SizedBox(height: 18),
-          ],
-          FilledButton.icon(
-            onPressed: controller.togglePlayPause,
-            icon: Icon(
-              controller.isPlaying
-                  ? Icons.pause_circle_filled_rounded
-                  : Icons.play_circle_fill_rounded,
+        );
+      },
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0x401F1A17),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x40FFD34D)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: RichText(
+          text: TextSpan(
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Colors.white,
             ),
-            label: Text(controller.isPlaying ? 'Pausar' : 'Ouvir agora'),
+            children: <InlineSpan>[
+              TextSpan(
+                text: '$label: ',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              TextSpan(
+                text: value,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
           ),
-          if (!controller.isLiveStreamMode) ...<Widget>[
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: controller.returnToLive,
-              child: const Text('Voltar para o ao vivo'),
-            ),
-            const SizedBox(height: 14),
-            Slider(
-              value: controller.podcastDuration.inMilliseconds == 0
-                  ? 0
-                  : controller.podcastPosition.inMilliseconds
-                        .clamp(0, controller.podcastDuration.inMilliseconds)
-                        .toDouble(),
-              max: controller.podcastDuration.inMilliseconds <= 0
-                  ? 1
-                  : controller.podcastDuration.inMilliseconds.toDouble(),
-              onChanged: controller.podcastDuration.inMilliseconds <= 0
-                  ? null
-                  : (value) {
-                      controller.seekPodcastTo(
-                        Duration(milliseconds: value.round()),
-                      );
-                    },
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Text(_formatPlaybackTime(controller.podcastPosition)),
-                Text(_formatPlaybackTime(controller.podcastDuration)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: <Widget>[
-                OutlinedButton(
-                  onPressed: () =>
-                      controller.skipPodcastBy(const Duration(seconds: -15)),
-                  child: const Text('-15s'),
-                ),
-                OutlinedButton(
-                  onPressed: () =>
-                      controller.skipPodcastBy(const Duration(seconds: 30)),
-                  child: const Text('+30s'),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          IconButton(
-            onPressed: controller.refreshNowPlaying,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x261F1A17),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x30FFD34D)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
           Text(
-            'Ouvintes agora: ${controller.listeners}',
-            style: textTheme.titleMedium,
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Colors.white70,
+            ),
           ),
-          if (controller.lastUpdated.isNotEmpty)
-            Text(
-              'Atualizado em ${controller.lastUpdated}',
-              style: textTheme.bodySmall,
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
-          if (controller.apiErrorMessage != null) ...<Widget>[
-            const SizedBox(height: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopCountriesCard extends StatelessWidget {
+  const _TopCountriesCard({required this.controller});
+
+  final RadioController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x261F1A17),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x30FFD34D)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Top countries in the ${controller.audienceWindowLabel.toLowerCase()}',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (controller.hasAudienceAnalytics &&
+              controller.topCountriesLast30Days.isNotEmpty)
+            ...controller.topCountriesLast30Days.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 42,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0x40FFD34D),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        item.countryCode,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.countryName,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${item.listeners}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: const Color(0xFFFFD34D),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
             Text(
-              controller.apiErrorMessage!,
-              textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
+              'The app needs station analytics access to show the 30-day audience breakdown.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white70,
+                height: 1.35,
               ),
             ),
-          ],
-          if (controller.playerErrorMessage != null) ...<Widget>[
-            const SizedBox(height: 10),
-            Text(
-              controller.playerErrorMessage!,
-              textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -328,8 +648,8 @@ class _ScheduleTabState extends State<_ScheduleTab> {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
       children: <Widget>[
         _SectionHeader(
-          title: 'Programacao',
-          subtitle: 'Semana e mes da radio',
+          title: 'Schedule',
+          subtitle: 'Weekly and monthly programming',
           trailing: IconButton(
             onPressed: () => controller.refreshSchedule(
               rangeStart: range.start,
@@ -344,7 +664,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
           runSpacing: 8,
           children: <Widget>[
             ChoiceChip(
-              label: const Text('Semana'),
+              label: const Text('Weekly'),
               selected: _mode == _ScheduleMode.weekly,
               onSelected: (_) {
                 setState(() {
@@ -354,7 +674,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
               },
             ),
             ChoiceChip(
-              label: const Text('Mes'),
+              label: const Text('Monthly'),
               selected: _mode == _ScheduleMode.monthly,
               onSelected: (_) {
                 setState(() {
@@ -426,8 +746,8 @@ class _ScheduleTabState extends State<_ScheduleTab> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 _mode == _ScheduleMode.weekly
-                    ? 'Nenhum programa encontrado nesta semana.'
-                    : 'Nenhum programa encontrado neste mes.',
+                    ? 'No programs found for this week.'
+                    : 'No programs found for this month.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -441,7 +761,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'NO AR AGORA',
+                    'ON AIR NOW',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -536,7 +856,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
     if (_mode == _ScheduleMode.weekly) {
       return '${DateFormat('dd/MM').format(range.start)} - ${DateFormat('dd/MM').format(range.end)}';
     }
-    return DateFormat('MMMM yyyy').format(range.start);
+    return DateFormat('MMMM yyyy', 'en_US').format(range.start);
   }
 }
 
@@ -552,7 +872,7 @@ class _PodcastsTab extends StatelessWidget {
       children: <Widget>[
         _SectionHeader(
           title: 'Podcasts',
-          subtitle: 'Programas gravados e especiais',
+          subtitle: 'Recorded shows and station specials',
           trailing: IconButton(
             onPressed: controller.refreshPodcasts,
             icon: const Icon(Icons.refresh_rounded),
@@ -603,14 +923,14 @@ class _PodcastsTab extends StatelessWidget {
                       children: <Widget>[
                         FilledButton(
                           onPressed: () => controller.openPodcast(podcast.id),
-                          child: const Text('Ver episodios'),
+                          child: const Text('View episodes'),
                         ),
                         OutlinedButton.icon(
                           onPressed: podcast.feedUrl.isEmpty
                               ? null
                               : () => _openUrl(podcast.feedUrl),
                           icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('Feed RSS'),
+                          label: const Text('RSS feed'),
                         ),
                       ],
                     ),
@@ -624,7 +944,7 @@ class _PodcastsTab extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: controller.closePodcast,
             icon: const Icon(Icons.arrow_back_rounded),
-            label: const Text('Voltar para podcasts'),
+            label: const Text('Back to podcasts'),
           ),
           const SizedBox(height: 12),
           Text(
@@ -683,7 +1003,7 @@ class _PodcastsTab extends StatelessWidget {
                           onPressed: episode.playUrl.isEmpty
                               ? null
                               : () => controller.playPodcastEpisode(episode),
-                          child: const Text('Ouvir no app'),
+                          child: const Text('Listen in app'),
                         ),
                         OutlinedButton.icon(
                           onPressed: episode.playUrl.isEmpty
@@ -706,6 +1026,108 @@ class _PodcastsTab extends StatelessWidget {
   }
 }
 
+class _PartnersTab extends StatelessWidget {
+  const _PartnersTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<RadioController>();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+      children: <Widget>[
+        _SectionHeader(
+          title: 'Partners',
+          subtitle: 'Supporting projects synced with the radio website',
+          trailing: IconButton(
+            onPressed: controller.refreshPartners,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (controller.isPartnersLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (controller.partnersErrorMessage != null) ...<Widget>[
+          Text(
+            controller.partnersErrorMessage!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        ...controller.partners.expand((partner) sync* {
+          yield Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (partner.imageUrl.isNotEmpty) ...<Widget>[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          partner.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, error, stackTrace) => Container(
+                            color: const Color(0x261F1A17),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.image_not_supported_outlined),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  Text(
+                    partner.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    partner.subtitle,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFFFFD34D),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(partner.description),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => _openUrl(partner.websiteUrl),
+                    icon: const Icon(Icons.open_in_new_rounded),
+                    label: const Text('Open partner website'),
+                  ),
+                ],
+              ),
+            ),
+          );
+          yield const SizedBox(height: 12);
+        }),
+        if (!controller.isPartnersLoading &&
+            controller.partnersErrorMessage == null &&
+            controller.partners.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'No partners are available right now.',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _ContactTab extends StatelessWidget {
   const _ContactTab();
 
@@ -715,8 +1137,8 @@ class _ContactTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
       children: <Widget>[
         const _SectionHeader(
-          title: 'Sobre e contato',
-          subtitle: 'Conheca a Radio FEM e fale com a equipe',
+          title: 'Info',
+          subtitle: 'About Radio FEM and how to contact us',
         ),
         const SizedBox(height: 12),
         Card(
@@ -726,7 +1148,7 @@ class _ContactTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'O que e a Radio FEM',
+                  'About Radio FEM',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -739,7 +1161,13 @@ class _ContactTab extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openUrl(AppConfig.websiteUrl),
                   icon: const Icon(Icons.radio_rounded),
-                  label: const Text('Abrir site da radio'),
+                  label: const Text('Open radio website'),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () => _openUrl(AppConfig.forroEmMilaoWebsiteUrl),
+                  icon: const Icon(Icons.language_rounded),
+                  label: const Text('Open FEM Website'),
                 ),
               ],
             ),
@@ -753,7 +1181,7 @@ class _ContactTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Email de contato',
+                  'Contact email',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -769,7 +1197,7 @@ class _ContactTab extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openUrl('mailto:${AppConfig.contactEmail}'),
                   icon: const Icon(Icons.email_rounded),
-                  label: const Text('Enviar email'),
+                  label: const Text('Send email'),
                 ),
               ],
             ),
@@ -811,7 +1239,7 @@ class _SectionHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing != null) trailing!,
+        if (trailing != null) ...<Widget>[trailing!],
       ],
     );
   }

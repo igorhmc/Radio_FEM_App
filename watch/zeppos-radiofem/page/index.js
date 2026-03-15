@@ -1,4 +1,9 @@
 import * as hmUI from "@zos/ui";
+import {
+  setScrollMode,
+  swipeToIndex,
+  SCROLL_MODE_SWIPER_HORIZONTAL,
+} from "@zos/page";
 import { BasePage } from "@zeppos/zml/base-page";
 
 const SCREEN_SIZE = 466;
@@ -100,13 +105,25 @@ function setControlStatus(message) {
   widgets.controlsStatus.setProperty(hmUI.prop.TEXT, message);
 }
 
+function goToPage(index) {
+  swipeToIndex({
+    index,
+  });
+}
+
 Page(
   BasePage({
     state: {},
 
     build() {
       hmUI.setStatusBarVisible(false);
-      hmUI.setScrollView(true, SCREEN_SIZE, PAGE_COUNT, false);
+      setScrollMode({
+        mode: SCROLL_MODE_SWIPER_HORIZONTAL,
+        options: {
+          width: SCREEN_SIZE,
+          count: PAGE_COUNT,
+        },
+      });
       this.buildLayout();
       this.refreshData();
       refreshTimer = setInterval(() => {
@@ -128,6 +145,21 @@ Page(
         w: SCREEN_SIZE,
         h: SCREEN_SIZE,
         color: COLOR_BG,
+      });
+
+      hmUI.createWidget(hmUI.widget.PAGE_INDICATOR, {
+        x: 0,
+        y: 16,
+        w: SCREEN_SIZE,
+        h: 20,
+        align_h: hmUI.align.CENTER_H,
+        h_space: 10,
+        horizontal: true,
+        use_color: true,
+        select_color: COLOR_ACCENT,
+        unselect_color: COLOR_ACCENT_SOFT,
+        element_height: 8,
+        element_radius: 4,
       });
 
       createRect(0, {
@@ -250,13 +282,27 @@ Page(
       });
 
       widgets.swipeHint = createText(0, {
-        x: 118,
+        x: 108,
         y: 438,
-        w: 230,
+        w: 250,
         h: 18,
-        text: "Deslize para a direita",
+        text: "Deslize ou toque em Controles",
         text_size: 16,
         color: COLOR_MUTED,
+      });
+
+      createButton(0, {
+        x: 143,
+        y: 414,
+        w: 180,
+        h: 34,
+        text: "Controles >",
+        normal_color: COLOR_ACCENT_SOFT,
+        press_color: COLOR_ACCENT,
+        text_size: 18,
+        click_func: () => {
+          goToPage(1);
+        },
       });
 
       createRect(1, {
@@ -288,8 +334,22 @@ Page(
       });
 
       createButton(1, {
+        x: 146,
+        y: 108,
+        w: 174,
+        h: 28,
+        text: "< Voltar ao ao vivo",
+        normal_color: COLOR_ACCENT_SOFT,
+        press_color: COLOR_ACCENT,
+        text_size: 16,
+        click_func: () => {
+          goToPage(0);
+        },
+      });
+
+      createButton(1, {
         x: 96,
-        y: 144,
+        y: 154,
         w: 120,
         h: 40,
         text: "Play",
@@ -303,7 +363,7 @@ Page(
 
       createButton(1, {
         x: 250,
-        y: 144,
+        y: 154,
         w: 120,
         h: 40,
         text: "Pause",
@@ -317,7 +377,7 @@ Page(
 
       createButton(1, {
         x: 96,
-        y: 206,
+        y: 216,
         w: 120,
         h: 40,
         text: "Vol -",
@@ -331,7 +391,7 @@ Page(
 
       createButton(1, {
         x: 250,
-        y: 206,
+        y: 216,
         w: 120,
         h: 40,
         text: "Vol +",
@@ -345,7 +405,7 @@ Page(
 
       createButton(1, {
         x: 146,
-        y: 278,
+        y: 288,
         w: 174,
         h: 38,
         text: "Atualizar dados",
@@ -359,7 +419,7 @@ Page(
 
       widgets.controlsStatus = createText(1, {
         x: 72,
-        y: 334,
+        y: 344,
         w: 322,
         h: 34,
         text: "Use esta tela para controlar",
@@ -372,7 +432,7 @@ Page(
         y: 438,
         w: 226,
         h: 18,
-        text: "Deslize para voltar",
+        text: "Deslize ou toque em Voltar",
         text_size: 16,
         color: COLOR_MUTED,
       });

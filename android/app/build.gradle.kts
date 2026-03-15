@@ -7,6 +7,7 @@ plugins {
 }
 
 import java.util.Properties
+import java.util.Base64
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 
 val signingProps = Properties()
@@ -15,10 +16,39 @@ if (signingFile.exists()) {
     signingFile.inputStream().use(signingProps::load)
 }
 
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.inputStream().use(localProps::load)
+}
+
 fun signingValue(key: String): String? {
     val fromFile = signingProps.getProperty(key)?.trim()
     if (!fromFile.isNullOrEmpty()) return fromFile
     return System.getenv(key)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+fun localOrEnvValue(localKey: String, envKey: String): String? {
+    val fromSigningFileLocal = signingProps.getProperty(localKey)?.trim()
+    if (!fromSigningFileLocal.isNullOrEmpty()) return fromSigningFileLocal
+    val fromSigningFileEnv = signingProps.getProperty(envKey)?.trim()
+    if (!fromSigningFileEnv.isNullOrEmpty()) return fromSigningFileEnv
+    val fromLocal = localProps.getProperty(localKey)?.trim()
+    if (!fromLocal.isNullOrEmpty()) return fromLocal
+    return System.getenv(envKey)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+fun encodeDartDefine(value: String): String =
+    Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
+
+val analyticsApiKey = localOrEnvValue(
+    "radiofem.analyticsApiKey",
+    "RADIO_FEM_ANALYTICS_API_KEY",
+)
+if (!analyticsApiKey.isNullOrBlank() && !project.hasProperty("dart-defines")) {
+    extensions.extraProperties["dart-defines"] = encodeDartDefine(
+        "RADIO_FEM_ANALYTICS_API_KEY=$analyticsApiKey"
+    )
 }
 
 android {

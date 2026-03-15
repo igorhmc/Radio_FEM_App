@@ -79,3 +79,28 @@ As constantes principais estao em [app_config.dart](/mnt/d/Radio_FEM_App/lib/src
 - `contactEmail`
 - `localBridgePort`
 - `localBridgeKey`
+
+## Audience analytics API
+
+O app agora suporta os relatórios privados de audiencia de 30 dias do AzuraCast para mostrar:
+
+- total de ouvintes nos ultimos 30 dias
+- top 5 paises por audiencia
+
+Para ativar isso, a build precisa receber uma API key da estacao com permissao de leitura de relatórios (`view station reports`).
+
+Voce pode fornecer a chave de 2 formas:
+
+1. Em [key.properties](/mnt/d/Radio_FEM_App/key.properties) ou [android/local.properties](/mnt/d/Radio_FEM_App/android/local.properties):
+
+```properties
+radiofem.analyticsApiKey=YOUR_STATION_API_KEY
+```
+
+2. Ou por variavel de ambiente:
+
+```bash
+export RADIO_FEM_ANALYTICS_API_KEY=YOUR_STATION_API_KEY
+```
+
+Depois disso, os builds Android e o publish via Gradle/Play Console passam a embutir automaticamente a chave no `dart-define` usado pelo app.

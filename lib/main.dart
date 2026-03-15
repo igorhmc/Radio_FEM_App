@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
+import 'src/config/app_config.dart';
 import 'src/controllers/radio_controller.dart';
+import 'src/services/azuracast_reports_service.dart';
 import 'src/services/radio_api_service.dart';
 import 'src/services/radio_audio_handler.dart';
 import 'src/ui/home_shell.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.forroemmilao.radiofem.playback',
+    androidNotificationChannelName: 'Radio FEM Playback',
+    androidNotificationOngoing: true,
+  );
   runApp(const RadioFemApp());
 }
 
@@ -28,11 +36,15 @@ class RadioFemApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RadioController(
         apiService: RadioApiService(),
+        reportsService: AzuraCastReportsService(
+          apiKey: AppConfig.analyticsApiKey,
+        ),
         playbackService: JustAudioRadioPlaybackService(),
       )..initialize(),
       child: MaterialApp(
         title: 'Radio FEM',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('en', 'US'),
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: scheme,
