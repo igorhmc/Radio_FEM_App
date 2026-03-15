@@ -1,4 +1,3 @@
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,27 +6,13 @@ import 'src/services/radio_api_service.dart';
 import 'src/services/radio_audio_handler.dart';
 import 'src/ui/home_shell.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  final audioHandler = await AudioService.init(
-    builder: RadioAudioHandler.new,
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.forroemmilao.radiofem.playback',
-      androidNotificationChannelName: 'Radio FEM Playback',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-      preloadArtwork: false,
-    ),
-  );
-
-  runApp(RadioFemApp(audioHandler: audioHandler));
+  runApp(const RadioFemApp());
 }
 
 class RadioFemApp extends StatelessWidget {
-  const RadioFemApp({super.key, required this.audioHandler});
-
-  final AudioHandler audioHandler;
+  const RadioFemApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,13 +23,12 @@ class RadioFemApp extends StatelessWidget {
       secondary: const Color(0xFF4AA35E),
       tertiary: const Color(0xFFC1553C),
       surface: const Color(0xFF1E1A18),
-      background: const Color(0xFF120F0E),
     );
 
     return ChangeNotifierProvider(
       create: (_) => RadioController(
         apiService: RadioApiService(),
-        audioHandler: audioHandler,
+        playbackService: JustAudioRadioPlaybackService(),
       )..initialize(),
       child: MaterialApp(
         title: 'Radio FEM',
@@ -52,7 +36,7 @@ class RadioFemApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: scheme,
-          scaffoldBackgroundColor: scheme.background,
+          scaffoldBackgroundColor: const Color(0xFF120F0E),
           cardTheme: CardThemeData(
             color: const Color(0xE0191716),
             elevation: 0,
@@ -61,8 +45,8 @@ class RadioFemApp extends StatelessWidget {
             ),
           ),
           textTheme: Typography.whiteMountainView.apply(
-            bodyColor: scheme.onBackground,
-            displayColor: scheme.onBackground,
+            bodyColor: scheme.onSurface,
+            displayColor: scheme.onSurface,
           ),
         ),
         home: const HomeShell(),

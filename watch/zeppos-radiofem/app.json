@@ -1,0 +1,47 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 390001,
+    "appName": "Radio FEM Live",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "0.1.0"
+    },
+    "icon": "icon.png",
+    "vender": "Radio FEM",
+    "description": "Shows now playing and live listeners for Radio FEM."
+  },
+  "permissions": ["device:os.local_storage"],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "4.0",
+      "target": "4.0",
+      "minVersion": "4.0"
+    }
+  },
+  "targets": {
+    "common": {
+      "module": {
+        "page": {
+          "pages": ["page/index"]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        }
+      },
+      "platforms": [
+        {
+          "st": "r",
+          "dw": 466
+        }
+      ]
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "Radio FEM Live"
+    }
+  },
+  "defaultLanguage": "en-US"
+}

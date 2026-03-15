@@ -1,28 +1,28 @@
 import 'dart:async';
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../config/app_config.dart';
 import '../models/radio_models.dart';
 import '../services/radio_api_service.dart';
+import '../services/radio_audio_handler.dart';
 
 class RadioController extends ChangeNotifier {
   RadioController({
     required RadioApiService apiService,
-    required AudioHandler audioHandler,
+    required RadioPlaybackService playbackService,
   }) : _apiService = apiService,
-       _audioHandler = audioHandler;
+       _playbackService = playbackService;
 
   final RadioApiService _apiService;
-  final AudioHandler _audioHandler;
+  final RadioPlaybackService _playbackService;
 
   final Map<String, List<PodcastEpisode>> _episodesCache =
       <String, List<PodcastEpisode>>{};
 
-  StreamSubscription<PlaybackState>? _playbackSubscription;
-  StreamSubscription<MediaItem?>? _mediaItemSubscription;
+  StreamSubscription<PlaybackStatus>? _playbackSubscription;
+  StreamSubscription<PlaybackMediaItem?>? _mediaItemSubscription;
   Timer? _pollTimer;
   Timer? _progressTimer;
 
@@ -32,8 +32,8 @@ class RadioController extends ChangeNotifier {
   DateTime? _loadedScheduleEnd;
 
   String stationName = AppConfig.stationName;
-  String nowPlayingArtist = 'Loading artist...';
-  String nowPlayingTitle = 'Loading track...';
+  String nowPlayingArtist = 'Carregando artista...';
+  String nowPlayingTitle = 'Carregando faixa...';
   int listeners = 0;
   bool isPlaying = false;
   bool isBuffering = false;
@@ -42,7 +42,7 @@ class RadioController extends ChangeNotifier {
   bool isScheduleLoading = false;
   bool isPodcastsLoading = false;
   bool isEpisodesLoading = false;
-  String playbackSourceLabel = 'Live';
+  String playbackSourceLabel = 'Ao vivo';
   String currentPodcastEpisodeTitle = '';
   String currentPodcastEpisodeDescription = '';
   String selectedPodcastTitle = '';
@@ -65,21 +65,20 @@ class RadioController extends ChangeNotifier {
     }
     _initialized = true;
 
-    _playbackSubscription = _audioHandler.playbackState.listen((state) {
-      isPlaying = state.playing;
-      isBuffering =
-          state.processingState == AudioProcessingState.loading ||
-          state.processingState == AudioProcessingState.buffering;
+    _playbackSubscription = _playbackService.statusStream.listen((state) {
+      isPlaying = state.isPlaying;
+      isBuffering = state.isBuffering;
+      isLiveStreamMode = state.isLive;
       notifyListeners();
     });
 
-    _mediaItemSubscription = _audioHandler.mediaItem.listen((item) {
+    _mediaItemSubscription = _playbackService.mediaItemStream.listen((item) {
       if (item == null) {
         return;
       }
       if (isLiveStreamMode) {
-        if ((item.artist?.trim().isNotEmpty ?? false)) {
-          nowPlayingArtist = item.artist!.trim();
+        if (item.artist.trim().isNotEmpty) {
+          nowPlayingArtist = item.artist.trim();
         }
         if (item.title.trim().isNotEmpty) {
           nowPlayingTitle = item.title.trim();
@@ -111,7 +110,7 @@ class RadioController extends ChangeNotifier {
   Future<void> togglePlayPause() async {
     playerErrorMessage = null;
     if (isPlaying) {
-      await _audioHandler.pause();
+      await _playbackService.pause();
       return;
     }
 
@@ -120,27 +119,27 @@ class RadioController extends ChangeNotifier {
       return;
     }
 
-    await _audioHandler.play();
+    await _playbackService.play();
   }
 
   Future<void> startLivePlayback() async {
     playerErrorMessage = null;
     try {
-      await _audioHandler.customAction('playLive', <String, dynamic>{
-        'url': AppConfig.streamUrl,
-        'stationName': stationName,
-        'artist': nowPlayingArtist,
-        'title': nowPlayingTitle,
-      });
+      await _playbackService.playLive(
+        url: AppConfig.streamUrl,
+        stationName: stationName,
+        artist: nowPlayingArtist,
+        title: nowPlayingTitle,
+      );
       isLiveStreamMode = true;
-      playbackSourceLabel = 'Live';
+      playbackSourceLabel = 'Ao vivo';
       currentPodcastEpisodeTitle = '';
       currentPodcastEpisodeDescription = '';
       podcastPosition = Duration.zero;
       podcastDuration = Duration.zero;
       notifyListeners();
     } catch (_) {
-      playerErrorMessage = 'Could not start the live stream.';
+      playerErrorMessage = 'Nao foi possivel iniciar a transmissao ao vivo.';
       notifyListeners();
     }
   }
@@ -152,21 +151,21 @@ class RadioController extends ChangeNotifier {
 
   Future<void> playPodcastEpisode(PodcastEpisode episode) async {
     if (episode.playUrl.isEmpty) {
-      playerErrorMessage = 'Episode has no playback URL.';
+      playerErrorMessage = 'Este episodio nao possui URL de reproducao.';
       notifyListeners();
       return;
     }
 
     playerErrorMessage = null;
     try {
-      await _audioHandler.customAction('playPodcast', <String, dynamic>{
-        'url': episode.playUrl,
-        'title': episode.title,
-        'podcastTitle': selectedPodcastTitle.isEmpty
+      await _playbackService.playPodcast(
+        url: episode.playUrl,
+        title: episode.title,
+        podcastTitle: selectedPodcastTitle.isEmpty
             ? AppConfig.stationName
             : selectedPodcastTitle,
-        'description': episode.description,
-      });
+        description: episode.description,
+      );
       isLiveStreamMode = false;
       playbackSourceLabel = 'Podcast';
       currentPodcastEpisodeTitle = episode.title;
@@ -179,7 +178,7 @@ class RadioController extends ChangeNotifier {
       podcastDuration = Duration.zero;
       notifyListeners();
     } catch (_) {
-      playerErrorMessage = 'Could not play this episode.';
+      playerErrorMessage = 'Nao foi possivel reproduzir este episodio.';
       notifyListeners();
     }
   }
@@ -192,7 +191,9 @@ class RadioController extends ChangeNotifier {
     final clamped = maxDuration > Duration.zero && position > maxDuration
         ? maxDuration
         : position;
-    await _audioHandler.seek(clamped < Duration.zero ? Duration.zero : clamped);
+    await _playbackService.seek(
+      clamped < Duration.zero ? Duration.zero : clamped,
+    );
     await _refreshPlaybackProgress();
   }
 
@@ -200,9 +201,7 @@ class RadioController extends ChangeNotifier {
     if (isLiveStreamMode) {
       return;
     }
-    await _audioHandler.customAction('seekRelative', <String, dynamic>{
-      'deltaMs': delta.inMilliseconds,
-    });
+    await _playbackService.seekRelative(delta);
     await _refreshPlaybackProgress();
   }
 
@@ -223,18 +222,17 @@ class RadioController extends ChangeNotifier {
       if (isLiveStreamMode) {
         nowPlayingArtist = payload.artist;
         nowPlayingTitle = payload.title;
-        await _audioHandler
-            .customAction('updateLiveMetadata', <String, dynamic>{
-              'stationName': payload.stationName,
-              'artist': payload.artist,
-              'title': payload.title,
-            });
+        await _playbackService.updateLiveMetadata(
+          stationName: payload.stationName,
+          artist: payload.artist,
+          title: payload.title,
+        );
       }
 
       notifyListeners();
     } catch (_) {
       isLoading = false;
-      apiErrorMessage = 'Could not update live status.';
+      apiErrorMessage = 'Nao foi possivel atualizar o status da radio.';
       notifyListeners();
     }
   }
@@ -277,7 +275,7 @@ class RadioController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       isScheduleLoading = false;
-      scheduleErrorMessage = 'Could not load schedule.';
+      scheduleErrorMessage = 'Nao foi possivel carregar a programacao.';
       notifyListeners();
     }
   }
@@ -310,7 +308,7 @@ class RadioController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       isPodcastsLoading = false;
-      podcastsErrorMessage = 'Could not load podcasts.';
+      podcastsErrorMessage = 'Nao foi possivel carregar os podcasts.';
       notifyListeners();
     }
   }
@@ -338,7 +336,12 @@ class RadioController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final episodes = await _apiService.fetchPodcastEpisodes(podcastId);
+      final episodes = await _apiService.fetchPodcastEpisodes(podcastId)
+        ..sort((a, b) {
+          final left = a.publishAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final right = b.publishAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return right.compareTo(left);
+        });
       _episodesCache[podcastId] = episodes;
       if (selectedPodcastId == podcastId) {
         podcastEpisodes = episodes;
@@ -349,7 +352,8 @@ class RadioController extends ChangeNotifier {
     } catch (_) {
       if (selectedPodcastId == podcastId) {
         isEpisodesLoading = false;
-        episodesErrorMessage = 'Could not load episodes for this podcast.';
+        episodesErrorMessage =
+            'Nao foi possivel carregar os episodios deste podcast.';
         notifyListeners();
       }
     }
@@ -375,19 +379,9 @@ class RadioController extends ChangeNotifier {
       return;
     }
 
-    final result = await _audioHandler.customAction('progress');
-    if (result is! Map) {
-      return;
-    }
-
-    final positionMs = result['positionMs'];
-    final durationMs = result['durationMs'];
-    final nextPosition = Duration(
-      milliseconds: positionMs is int ? positionMs : 0,
-    );
-    final nextDuration = Duration(
-      milliseconds: durationMs is int ? durationMs : 0,
-    );
+    final result = await _playbackService.progress();
+    final nextPosition = result.position;
+    final nextDuration = result.duration;
     if (nextPosition != podcastPosition || nextDuration != podcastDuration) {
       podcastPosition = nextPosition;
       podcastDuration = nextDuration;
@@ -401,6 +395,7 @@ class RadioController extends ChangeNotifier {
     _mediaItemSubscription?.cancel();
     _pollTimer?.cancel();
     _progressTimer?.cancel();
+    _playbackService.dispose();
     super.dispose();
   }
 }

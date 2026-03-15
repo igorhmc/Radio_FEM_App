@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Radio FEM Watch Bridge</string>
+    <string name="bridge_description">Aplicativo adicional para o relógio. Ele mantém uma ponte local no celular para o app do Amazfit enviar comandos de play, pause e volume sem alterar o aplicativo principal da Radio FEM.</string>
+    <string name="start_bridge">Ativar ponte</string>
+    <string name="stop_bridge">Desativar ponte</string>
+    <string name="play_live">Play</string>
+    <string name="pause_live">Pause</string>
+    <string name="volume_down">Vol -</string>
+    <string name="volume_up">Vol +</string>
+</resources>

@@ -53,11 +53,11 @@ class _HomeShellState extends State<HomeShell> {
             destinations: const <NavigationDestination>[
               NavigationDestination(
                 icon: Icon(Icons.graphic_eq_rounded),
-                label: 'Live',
+                label: 'Ao vivo',
               ),
               NavigationDestination(
                 icon: Icon(Icons.calendar_month_rounded),
-                label: 'Schedule',
+                label: 'Grade',
               ),
               NavigationDestination(
                 icon: Icon(Icons.mic_none_rounded),
@@ -65,7 +65,7 @@ class _HomeShellState extends State<HomeShell> {
               ),
               NavigationDestination(
                 icon: Icon(Icons.email_outlined),
-                label: 'Contact',
+                label: 'Contato',
               ),
             ],
           ),
@@ -112,7 +112,7 @@ class _PlayerTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Now Playing',
+                    'Tocando agora',
                     style: textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFFFD34D),
                     ),
@@ -157,7 +157,7 @@ class _PlayerTab extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   Text(
-                    'Source: ${controller.playbackSourceLabel}',
+                    'Fonte: ${controller.playbackSourceLabel}',
                     style: textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFFFFD34D),
                     ),
@@ -189,13 +189,13 @@ class _PlayerTab extends StatelessWidget {
                   ? Icons.pause_circle_filled_rounded
                   : Icons.play_circle_fill_rounded,
             ),
-            label: Text(controller.isPlaying ? 'Pause' : 'Listen Now'),
+            label: Text(controller.isPlaying ? 'Pausar' : 'Ouvir agora'),
           ),
           if (!controller.isLiveStreamMode) ...<Widget>[
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: controller.returnToLive,
-              child: const Text('Back to Live'),
+              child: const Text('Voltar para o ao vivo'),
             ),
             const SizedBox(height: 14),
             Slider(
@@ -246,12 +246,12 @@ class _PlayerTab extends StatelessWidget {
             icon: const Icon(Icons.refresh_rounded),
           ),
           Text(
-            'Listeners now: ${controller.listeners}',
+            'Ouvintes agora: ${controller.listeners}',
             style: textTheme.titleMedium,
           ),
           if (controller.lastUpdated.isNotEmpty)
             Text(
-              'Updated at ${controller.lastUpdated}',
+              'Atualizado em ${controller.lastUpdated}',
               style: textTheme.bodySmall,
             ),
           if (controller.apiErrorMessage != null) ...<Widget>[
@@ -309,7 +309,17 @@ class _ScheduleTabState extends State<_ScheduleTab> {
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
-    final currentItem = visibleItems.where((item) => item.isNow).firstOrNull;
+    final currentCandidates = visibleItems.where((item) => item.isNow).toList()
+      ..sort((a, b) {
+        final priority = (b.isFeaturedProgram ? 1 : 0).compareTo(
+          a.isFeaturedProgram ? 1 : 0,
+        );
+        if (priority != 0) {
+          return priority;
+        }
+        return b.startAt.compareTo(a.startAt);
+      });
+    final currentItem = currentCandidates.firstOrNull;
     final remainingItems = visibleItems
         .where((item) => item.key != currentItem?.key)
         .toList(growable: false);
@@ -318,8 +328,8 @@ class _ScheduleTabState extends State<_ScheduleTab> {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
       children: <Widget>[
         _SectionHeader(
-          title: 'Schedule',
-          subtitle: 'Station calendar',
+          title: 'Programacao',
+          subtitle: 'Semana e mes da radio',
           trailing: IconButton(
             onPressed: () => controller.refreshSchedule(
               rangeStart: range.start,
@@ -334,7 +344,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
           runSpacing: 8,
           children: <Widget>[
             ChoiceChip(
-              label: const Text('Weekly'),
+              label: const Text('Semana'),
               selected: _mode == _ScheduleMode.weekly,
               onSelected: (_) {
                 setState(() {
@@ -344,7 +354,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
               },
             ),
             ChoiceChip(
-              label: const Text('Monthly'),
+              label: const Text('Mes'),
               selected: _mode == _ScheduleMode.monthly,
               onSelected: (_) {
                 setState(() {
@@ -416,8 +426,8 @@ class _ScheduleTabState extends State<_ScheduleTab> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 _mode == _ScheduleMode.weekly
-                    ? 'No programs found for this week.'
-                    : 'No programs found for this month.',
+                    ? 'Nenhum programa encontrado nesta semana.'
+                    : 'Nenhum programa encontrado neste mes.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -431,7 +441,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'ON AIR NOW',
+                    'NO AR AGORA',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -542,7 +552,7 @@ class _PodcastsTab extends StatelessWidget {
       children: <Widget>[
         _SectionHeader(
           title: 'Podcasts',
-          subtitle: 'Recorded content from Radio FEM',
+          subtitle: 'Programas gravados e especiais',
           trailing: IconButton(
             onPressed: controller.refreshPodcasts,
             icon: const Icon(Icons.refresh_rounded),
@@ -593,14 +603,14 @@ class _PodcastsTab extends StatelessWidget {
                       children: <Widget>[
                         FilledButton(
                           onPressed: () => controller.openPodcast(podcast.id),
-                          child: const Text('View Episodes'),
+                          child: const Text('Ver episodios'),
                         ),
                         OutlinedButton.icon(
                           onPressed: podcast.feedUrl.isEmpty
                               ? null
                               : () => _openUrl(podcast.feedUrl),
                           icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('RSS Feed'),
+                          label: const Text('Feed RSS'),
                         ),
                       ],
                     ),
@@ -614,7 +624,7 @@ class _PodcastsTab extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: controller.closePodcast,
             icon: const Icon(Icons.arrow_back_rounded),
-            label: const Text('Back to Podcasts'),
+            label: const Text('Voltar para podcasts'),
           ),
           const SizedBox(height: 12),
           Text(
@@ -673,7 +683,7 @@ class _PodcastsTab extends StatelessWidget {
                           onPressed: episode.playUrl.isEmpty
                               ? null
                               : () => controller.playPodcastEpisode(episode),
-                          child: const Text('Listen in App'),
+                          child: const Text('Ouvir no app'),
                         ),
                         OutlinedButton.icon(
                           onPressed: episode.playUrl.isEmpty
@@ -705,8 +715,8 @@ class _ContactTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
       children: <Widget>[
         const _SectionHeader(
-          title: 'Contact',
-          subtitle: 'Talk to the Radio FEM team',
+          title: 'Sobre e contato',
+          subtitle: 'Conheca a Radio FEM e fale com a equipe',
         ),
         const SizedBox(height: 12),
         Card(
@@ -716,18 +726,20 @@ class _ContactTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'About Radio FEM',
+                  'O que e a Radio FEM',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Radio FEM is an independent and collaborative radio project focused on Forro culture.',
-                ),
+                const Text(AppConfig.aboutShort),
                 const SizedBox(height: 8),
-                const Text(
-                  'The proposal is to deliver high-quality curation with artistic freedom, no commercial pressure, and strong respect for Brazilian roots and community values.',
+                const Text(AppConfig.aboutLong),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () => _openUrl(AppConfig.websiteUrl),
+                  icon: const Icon(Icons.radio_rounded),
+                  label: const Text('Abrir site da radio'),
                 ),
               ],
             ),
@@ -741,7 +753,7 @@ class _ContactTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Email',
+                  'Email de contato',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -757,7 +769,7 @@ class _ContactTab extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openUrl('mailto:${AppConfig.contactEmail}'),
                   icon: const Icon(Icons.email_rounded),
-                  label: const Text('Send Email'),
+                  label: const Text('Enviar email'),
                 ),
               ],
             ),

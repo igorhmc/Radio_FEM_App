@@ -36,7 +36,6 @@ class RadioApiService {
 
     return json
         .map(ScheduleItem.fromJson)
-        .where((item) => item.rawTitlePrefix.startsWith('PROG'))
         .toList();
   }
 

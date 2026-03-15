@@ -1,31 +1,84 @@
 import 'dart:async';
 
-import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
-class RadioAudioHandler extends BaseAudioHandler with SeekHandler {
-  RadioAudioHandler() {
-    _player.playbackEventStream.listen((_) => _broadcastState());
-    _player.playerStateStream.listen((state) {
-      _broadcastState();
+abstract class RadioPlaybackService {
+  Stream<PlaybackStatus> get statusStream;
+
+  Stream<PlaybackMediaItem?> get mediaItemStream;
+
+  Future<void> play();
+
+  Future<void> pause();
+
+  Future<void> seek(Duration position);
+
+  Future<void> stop();
+
+  Future<void> playLive({
+    required String url,
+    required String stationName,
+    required String artist,
+    required String title,
+  });
+
+  Future<void> playPodcast({
+    required String url,
+    required String title,
+    required String podcastTitle,
+    required String description,
+  });
+
+  Future<void> updateLiveMetadata({
+    required String stationName,
+    required String artist,
+    required String title,
+  });
+
+  Future<void> seekRelative(Duration delta);
+
+  Future<PlaybackProgress> progress();
+
+  void dispose();
+}
+
+class JustAudioRadioPlaybackService implements RadioPlaybackService {
+  JustAudioRadioPlaybackService() {
+    _playerStateSubscription = _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed &&
           _mode == PlaybackMode.podcast) {
         unawaited(_player.pause());
         unawaited(_player.seek(Duration.zero));
       }
+      _emitStatus();
     });
-    _player.durationStream.listen((duration) {
-      if (_currentItem == null) {
+    _durationSubscription = _player.durationStream.listen((duration) {
+      if (_isDisposed || _currentItem == null) {
         return;
       }
-      _currentItem = _currentItem!.copyWith(duration: duration);
-      mediaItem.add(_currentItem);
+      _currentItem = _currentItem!.copyWith(duration: duration ?? Duration.zero);
+      _mediaItemController.add(_currentItem);
     });
+    _emitStatus();
   }
 
   final AudioPlayer _player = AudioPlayer();
+  final StreamController<PlaybackStatus> _statusController =
+      StreamController<PlaybackStatus>.broadcast();
+  final StreamController<PlaybackMediaItem?> _mediaItemController =
+      StreamController<PlaybackMediaItem?>.broadcast();
+
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
   PlaybackMode _mode = PlaybackMode.live;
-  MediaItem? _currentItem;
+  PlaybackMediaItem? _currentItem;
+  bool _isDisposed = false;
+
+  @override
+  Stream<PlaybackStatus> get statusStream => _statusController.stream;
+
+  @override
+  Stream<PlaybackMediaItem?> get mediaItemStream => _mediaItemController.stream;
 
   @override
   Future<void> play() => _player.play();
@@ -39,57 +92,10 @@ class RadioAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> stop() async {
     await _player.stop();
-    await super.stop();
   }
 
   @override
-  Future<dynamic> customAction(
-    String name, [
-    Map<String, dynamic>? extras,
-  ]) async {
-    final payload = extras ?? const <String, dynamic>{};
-
-    switch (name) {
-      case 'playLive':
-        await _playLive(
-          url: payload['url'] as String? ?? '',
-          stationName: payload['stationName'] as String? ?? 'Radio FEM',
-          artist: payload['artist'] as String? ?? 'Radio FEM',
-          title: payload['title'] as String? ?? 'Live Stream',
-        );
-        return null;
-      case 'playPodcast':
-        await _playPodcast(
-          url: payload['url'] as String? ?? '',
-          title: payload['title'] as String? ?? 'Episode',
-          podcastTitle: payload['podcastTitle'] as String? ?? 'Podcast',
-          description: payload['description'] as String? ?? '',
-        );
-        return null;
-      case 'updateLiveMetadata':
-        _updateLiveMetadata(
-          stationName: payload['stationName'] as String? ?? 'Radio FEM',
-          artist: payload['artist'] as String? ?? 'Radio FEM',
-          title: payload['title'] as String? ?? 'Live Stream',
-        );
-        return null;
-      case 'seekRelative':
-        final deltaMs = payload['deltaMs'] as int? ?? 0;
-        final target = _player.position + Duration(milliseconds: deltaMs);
-        await _player.seek(target < Duration.zero ? Duration.zero : target);
-        return null;
-      case 'progress':
-        return <String, dynamic>{
-          'positionMs': _player.position.inMilliseconds,
-          'durationMs': _player.duration?.inMilliseconds ?? 0,
-          'isLive': _mode == PlaybackMode.live,
-        };
-    }
-
-    return super.customAction(name, payload);
-  }
-
-  Future<void> _playLive({
+  Future<void> playLive({
     required String url,
     required String stationName,
     required String artist,
@@ -100,23 +106,23 @@ class RadioAudioHandler extends BaseAudioHandler with SeekHandler {
     }
 
     _mode = PlaybackMode.live;
-    _currentItem = MediaItem(
+    _currentItem = PlaybackMediaItem(
       id: url,
       album: stationName,
       title: title,
       artist: artist,
-      displayTitle: title,
-      displaySubtitle: artist,
-      extras: const <String, dynamic>{'mode': 'live'},
+      description: '',
+      duration: Duration.zero,
     );
-    mediaItem.add(_currentItem);
-    queue.add([_currentItem!]);
-
+    _mediaItemController.add(_currentItem);
+    await _player.stop();
     await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
     await _player.play();
+    _emitStatus();
   }
 
-  Future<void> _playPodcast({
+  @override
+  Future<void> playPodcast({
     required String url,
     required String title,
     required String podcastTitle,
@@ -127,28 +133,27 @@ class RadioAudioHandler extends BaseAudioHandler with SeekHandler {
     }
 
     _mode = PlaybackMode.podcast;
-    _currentItem = MediaItem(
+    _currentItem = PlaybackMediaItem(
       id: url,
       album: podcastTitle,
       title: title,
       artist: podcastTitle,
-      displayTitle: title,
-      displaySubtitle: podcastTitle,
-      displayDescription: description,
-      extras: const <String, dynamic>{'mode': 'podcast'},
+      description: description,
+      duration: Duration.zero,
     );
-    mediaItem.add(_currentItem);
-    queue.add([_currentItem!]);
-
+    _mediaItemController.add(_currentItem);
+    await _player.stop();
     await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
     await _player.play();
+    _emitStatus();
   }
 
-  void _updateLiveMetadata({
+  @override
+  Future<void> updateLiveMetadata({
     required String stationName,
     required String artist,
     required String title,
-  }) {
+  }) async {
     if (_mode != PlaybackMode.live || _currentItem == null) {
       return;
     }
@@ -157,43 +162,113 @@ class RadioAudioHandler extends BaseAudioHandler with SeekHandler {
       album: stationName,
       title: title,
       artist: artist,
-      displayTitle: title,
-      displaySubtitle: artist,
+      description: '',
     );
-    mediaItem.add(_currentItem);
+    _mediaItemController.add(_currentItem);
   }
 
-  void _broadcastState() {
-    playbackState.add(
-      PlaybackState(
-        controls: <MediaControl>[
-          if (_player.playing) MediaControl.pause else MediaControl.play,
-          MediaControl.stop,
-        ],
-        systemActions: const <MediaAction>{
-          MediaAction.seek,
-          MediaAction.seekForward,
-          MediaAction.seekBackward,
-        },
-        androidCompactActionIndices: const <int>[0],
-        processingState: const <ProcessingState, AudioProcessingState>{
-          ProcessingState.idle: AudioProcessingState.idle,
-          ProcessingState.loading: AudioProcessingState.loading,
-          ProcessingState.buffering: AudioProcessingState.buffering,
-          ProcessingState.ready: AudioProcessingState.ready,
-          ProcessingState.completed: AudioProcessingState.completed,
-        }[_player.processingState]!,
-        playing: _player.playing,
-        updatePosition: _player.position,
-        bufferedPosition: _player.bufferedPosition,
-        speed: _player.speed,
-        queueIndex: _player.currentIndex,
+  @override
+  Future<void> seekRelative(Duration delta) async {
+    final target = _player.position + delta;
+    await _player.seek(target < Duration.zero ? Duration.zero : target);
+  }
+
+  @override
+  Future<PlaybackProgress> progress() async {
+    return PlaybackProgress(
+      position: _player.position,
+      duration: _player.duration ?? Duration.zero,
+      isLive: _mode == PlaybackMode.live,
+    );
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    unawaited(_playerStateSubscription?.cancel());
+    unawaited(_durationSubscription?.cancel());
+    _statusController.close();
+    _mediaItemController.close();
+    unawaited(_player.dispose());
+  }
+
+  void _emitStatus() {
+    if (_isDisposed) {
+      return;
+    }
+    _statusController.add(
+      PlaybackStatus(
+        isPlaying: _player.playing,
+        isBuffering:
+            _player.processingState == ProcessingState.loading ||
+            _player.processingState == ProcessingState.buffering,
+        isLive: _mode == PlaybackMode.live,
       ),
     );
   }
 }
 
 enum PlaybackMode { live, podcast }
+
+class PlaybackStatus {
+  const PlaybackStatus({
+    required this.isPlaying,
+    required this.isBuffering,
+    required this.isLive,
+  });
+
+  final bool isPlaying;
+  final bool isBuffering;
+  final bool isLive;
+}
+
+class PlaybackMediaItem {
+  const PlaybackMediaItem({
+    required this.id,
+    required this.album,
+    required this.title,
+    required this.artist,
+    required this.description,
+    required this.duration,
+  });
+
+  final String id;
+  final String album;
+  final String title;
+  final String artist;
+  final String description;
+  final Duration duration;
+
+  PlaybackMediaItem copyWith({
+    String? id,
+    String? album,
+    String? title,
+    String? artist,
+    String? description,
+    Duration? duration,
+  }) {
+    return PlaybackMediaItem(
+      id: id ?? this.id,
+      album: album ?? this.album,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      description: description ?? this.description,
+      duration: duration ?? this.duration,
+    );
+  }
+}
+
+class PlaybackProgress {
+  const PlaybackProgress({
+    required this.position,
+    required this.duration,
+    required this.isLive,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final bool isLive;
+}
 
 class AudioPlaybackException implements Exception {
   const AudioPlaybackException(this.message);

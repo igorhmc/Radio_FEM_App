@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Radio FEM Live - Preview QR</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, #2a1808 0%, #0a0a0a 48%, #000 100%);
+        color: #fff;
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      main {
+        width: min(92vw, 920px);
+        padding: 24px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(24px, 3vw, 36px);
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: #d1d1d1;
+        font-size: clamp(14px, 1.8vw, 18px);
+      }
+
+      .card {
+        display: inline-block;
+        padding: 22px;
+        border-radius: 28px;
+        background: #fff;
+        box-shadow: 0 24px 90px rgba(0, 0, 0, 0.45);
+      }
+
+      canvas {
+        display: block;
+        width: min(72vw, 620px);
+        height: auto;
+        image-rendering: pixelated;
+      }
+
+      .meta {
+        margin-top: 18px;
+        color: #ffb36a;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Radio FEM Live</h1>
+      <p>Escaneie este QR no app Zepp para instalar o preview no Amazfit Active 2.</p>
+      <div class="card">
+        <canvas id="qr"></canvas>
+      </div>
+      <p class="meta">Valido ate 2026-03-22 18:14:11</p>
+    </main>
+
+    <script>
+      const rows = [
+        "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄",
+        "█ ▄▄▄▄▄ █ ▀▀▄ █ ▄▀▀ ▄█▄▄█▀▄▀█▀█ ▄▄▄▄▄ █",
+        "█ █   █ ███ ▄▄  ▀█▄▀█▄ ▀ ▄ ▀█▄█ █   █ █",
+        "█ █▄▄▄█ █ ▄▄ █████  ███ ██ ██▀█ █▄▄▄█ █",
+        "█▄▄▄▄▄▄▄█ █ ▀ █▄█ █ ▀▄█▄█ █ ▀ █▄▄▄▄▄▄▄█",
+        "█▄▄ ▀█▄▄█▄▄ ██ █   ██ ▀▄  █▀▀▄▄  ▄█▀  █",
+        "█▀▄██▀▀▄█ ▀▀▄███▄█▄ ▄▄█▀▄▀▄█▄▀█▄▀ ▄█ ▄█",
+        "█▀ ▀██ ▄█▄▄▀▄ ▄█▄ ▄█ ▀██▀▄▀█▀ █ ▄█ ▀  █",
+        "██▄▄  █▄▄▄ ▀▀ ▄█▄██ ▄ ▄█▄▄█▀ ▀▀▄ ▄██▄▄█",
+        "█▀█ ▀▀▀▄  █ ████▄▀█▀█ ▀█ ▀▀█▀   ▀█ ▀█ █",
+        "█   ▀▄ ▄▄ ▄▄▄███▄ ██▄▀█▀▄▄▄▀ █▄ █ ▀█▀ █",
+        "█▄▀▀▄▀ ▄▀ ▀▄▄ ▄▀█ ▀▀  █▀ ▀▀▄  ▄  █▄█▄▀█",
+        "█ ▀ ▄█ ▄▀ █▀▀ ██▄█▄  ██▀▄██▀  █▀ █▀▄█▄█",
+        "██ ██▀█▄█ ▀███▀█▄▀█▀▄▀▀█  █▀▀▄▀  ███  █",
+        "█▄▄▄ ██▄▀▄▀▀▄█▄█ ▀██ ▀██ ▀▄█▄▄▄▀█  ▄█ █",
+        "█▄▄▄███▄▄▀▄ ▄ ▄▀▀ ▀█▀▄▀█▀▄▀█  ▄▄▄ ▄▀ ▀█",
+        "█ ▄▄▄▄▄ █▀▄▀▀ █▄▄██▄▄ ▄█ ██▀▀ █▄█ █▄█ █",
+        "█ █   █ ██ ▄██ ▄█▀▀█  ▀█ ▀▀█▄▄ ▄▄  ▀▀██",
+        "█ █▄▄▄█ █ ▄ ▄█▀█  ▄ ▄██▀▄ █▀   █▀▄▀▄█▄█",
+        "█▄▄▄▄▄▄▄█▄▄▄▄▄▄██▄██▄▄███▄███▄█▄██▄██▄█"
+      ];
+
+      const canvas = document.getElementById("qr");
+      const ctx = canvas.getContext("2d");
+      const scale = 12;
+      const width = rows[0].length;
+      const height = rows.length * 2;
+
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      function drawModule(x, y) {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(x * scale, y * scale, scale, scale);
+      }
+
+      rows.forEach((row, y) => {
+        [...row].forEach((ch, x) => {
+          if (ch === "█" || ch === "▀") {
+            drawModule(x, y * 2);
+          }
+          if (ch === "█" || ch === "▄") {
+            drawModule(x, y * 2 + 1);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -26,3 +26,7 @@ Thumbs.db
 .flutter-plugins
 .flutter-plugins-dependencies
 .tooling/
+
+# Watch prototype
+watch/**/node_modules/
+watch/**/dist/

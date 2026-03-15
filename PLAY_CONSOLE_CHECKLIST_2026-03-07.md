@@ -5,7 +5,7 @@ Package: `com.forroemmilao.radiofem`
 Current release:
 - Track: `internal`
 - Status: `draft`
-- Version: `1.0.5+10005`
+- Version: `1.0.6+10009`
 
 What was completed from the repository:
 - Android App Bundle signed and uploaded to Play Console.
@@ -67,3 +67,4 @@ Files prepared for Play metadata:
 - `android/app/src/main/play/`
 - `android/app/src/main/play/listings/en-US/`
 - `android/app/src/main/play/release-notes/`
+- `PLAYSTORE_MATERIALS_radio_fem_v1.0.7.md`

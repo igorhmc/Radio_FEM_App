@@ -34,9 +34,7 @@ class NowPlayingInfo {
     }
 
     return NowPlayingInfo(
-      stationName: _asString(station['name']).trim().isEmpty
-          ? 'Radio FEM'
-          : _asString(station['name']).trim(),
+      stationName: _normalizeStationName(_asString(station['name']).trim()),
       listeners: _asInt(listeners['current']),
       artist: artist.isEmpty ? 'Unknown Artist' : artist,
       title: title.isEmpty ? (rawText.isEmpty ? 'Live Track' : rawText) : title,
@@ -81,6 +79,8 @@ class ScheduleItem {
   }
 
   String get rawTitlePrefix => rawTitle.toUpperCase();
+
+  bool get isFeaturedProgram => rawTitlePrefix.startsWith('PROG');
 
   String get key =>
       '$title|${startAt.millisecondsSinceEpoch}|${endAt.millisecondsSinceEpoch}';
@@ -225,4 +225,14 @@ String _normalizeProgramTitle(String value) {
         return lower[0].toUpperCase() + lower.substring(1);
       })
       .join(' ');
+}
+
+String _normalizeStationName(String value) {
+  if (value.isEmpty) {
+    return 'Radio FEM';
+  }
+  if (value.toLowerCase() == 'radiofem') {
+    return 'Radio FEM';
+  }
+  return value;
 }

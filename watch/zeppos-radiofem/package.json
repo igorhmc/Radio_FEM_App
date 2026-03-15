@@ -1,0 +1,14 @@
+{
+  "name": "zeppos-radiofem",
+  "version": "0.1.0",
+  "private": true,
+  "main": "app.js",
+  "scripts": {
+    "build": "zeus build",
+    "preview": "zeus preview"
+  },
+  "devDependencies": {
+    "@zeppos/device-types": "^3.0.0",
+    "@zeppos/zml": "^0.0.38"
+  }
+}
