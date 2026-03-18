@@ -6,6 +6,8 @@ local.properties
 
 # Gradle / build
 .gradle/
+.kotlin/
+android/.kotlin/
 build/
 **/build/
 app/release/
