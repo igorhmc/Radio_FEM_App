@@ -14,6 +14,7 @@ app/release/
 
 # IDE
 .idea/
+.vscode/
 *.iml
 
 # OS
