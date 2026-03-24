@@ -1,9 +1,6 @@
-// ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'dart:io';
 
-import 'package:audio_service/audio_service.dart' show AudioServiceBackground;
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart' as bg;
@@ -95,6 +92,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   StreamSubscription<IcyMetadata?>? _icyMetadataSubscription;
   PlaybackMode _mode = PlaybackMode.live;
   PlaybackMediaItem? _currentItem;
+  int _liveMetadataRevision = 0;
   bool _isDisposed = false;
 
   @override
@@ -140,21 +138,10 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       description: '',
       duration: Duration.zero,
     );
+    _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
     await _player.stop();
-    await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(url),
-        headers: const <String, String>{'Icy-MetaData': '1'},
-        tag: await _buildSystemMediaItem(
-          id: url,
-          album: stationName,
-          title: title.isEmpty ? 'Radio FEM ao vivo' : title,
-          artist: artist.isEmpty ? stationName : artist,
-          description: 'Transmissao ao vivo',
-        ),
-      ),
-    );
+    await _player.setAudioSource(await _buildLiveAudioSource(_currentItem!));
     await _player.play();
     _emitStatus();
   }
@@ -222,8 +209,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _currentItem = nextItem;
+    _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
-    await _publishCurrentItemToSystem();
+    await _reloadLiveAudioSource();
   }
 
   @override
@@ -301,31 +289,41 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     );
   }
 
-  Future<void> _publishCurrentItemToSystem() async {
+  Future<AudioSource> _buildLiveAudioSource(PlaybackMediaItem item) async {
+    return AudioSource.uri(
+      Uri.parse(item.id),
+      headers: const <String, String>{'Icy-MetaData': '1'},
+      tag: await _buildSystemMediaItem(
+        id: _buildLiveMediaItemId(item),
+        album: item.album,
+        title: item.title.isEmpty ? 'Radio FEM ao vivo' : item.title,
+        artist: item.artist.isEmpty ? item.album : item.artist,
+        description: 'Transmissao ao vivo',
+      ),
+    );
+  }
+
+  String _buildLiveMediaItemId(PlaybackMediaItem item) {
+    return '${item.id}#live-meta=$_liveMetadataRevision';
+  }
+
+  Future<void> _reloadLiveAudioSource() async {
     final currentItem = _currentItem;
-    if (_isDisposed || currentItem == null) {
+    if (_isDisposed ||
+        currentItem == null ||
+        _mode != PlaybackMode.live ||
+        currentItem.id.isEmpty) {
       return;
     }
 
-    final systemItem = await _buildSystemMediaItem(
-      id: currentItem.id,
-      album: currentItem.album,
-      title: currentItem.title.isEmpty
-          ? (_mode == PlaybackMode.live
-                ? 'Radio FEM ao vivo'
-                : currentItem.album)
-          : currentItem.title,
-      artist: currentItem.artist.isEmpty
-          ? currentItem.album
-          : currentItem.artist,
-      description: currentItem.description,
-    );
-
+    final wasPlaying = _player.playing;
     try {
-      await AudioServiceBackground.setQueue(<bg.MediaItem>[systemItem]);
-      await AudioServiceBackground.setMediaItem(systemItem);
+      await _player.setAudioSource(await _buildLiveAudioSource(currentItem));
+      if (wasPlaying) {
+        await _player.play();
+      }
     } catch (_) {
-      // Ignore platform sync failures so playback/UI updates keep working.
+      // Ignore platform refresh failures so playback/UI updates keep working.
     }
   }
 
