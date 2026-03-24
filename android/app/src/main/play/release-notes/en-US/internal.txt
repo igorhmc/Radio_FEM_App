@@ -1,5 +1,5 @@
-Radio FEM 1.0.13 - Ary Lobo:
+Radio FEM 1.0.15 - Ary Lobo:
 
-- Updated the Info page with the yellow Open FEM Website button.
+- Improved live radio metadata refresh on Android notifications and Bluetooth/car displays.
 - Returning from podcasts to live now refreshes the current radio metadata automatically.
 - Kept private AzuraCast audience reports support and the Partners sync with the website.

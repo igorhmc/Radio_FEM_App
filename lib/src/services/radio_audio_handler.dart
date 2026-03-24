@@ -1,6 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'dart:io';
 
+import 'package:audio_service/audio_service.dart' show AudioServiceBackground;
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart' as bg;
@@ -65,16 +68,21 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       if (_isDisposed || _currentItem == null) {
         return;
       }
-      _currentItem = _currentItem!.copyWith(duration: duration ?? Duration.zero);
+      _currentItem = _currentItem!.copyWith(
+        duration: duration ?? Duration.zero,
+      );
       _mediaItemController.add(_currentItem);
     });
     _volumeSubscription = _player.volumeStream.listen((_) {
       _emitStatus();
     });
+    _icyMetadataSubscription = _player.icyMetadataStream.listen(
+      _handleIcyMetadataChanged,
+    );
     _emitStatus();
   }
 
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player = AudioPlayer(useProxyForRequestHeaders: false);
   final StreamController<PlaybackStatus> _statusController =
       StreamController<PlaybackStatus>.broadcast();
   final StreamController<PlaybackMediaItem?> _mediaItemController =
@@ -84,6 +92,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<double>? _volumeSubscription;
+  StreamSubscription<IcyMetadata?>? _icyMetadataSubscription;
   PlaybackMode _mode = PlaybackMode.live;
   PlaybackMediaItem? _currentItem;
   bool _isDisposed = false;
@@ -136,6 +145,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     await _player.setAudioSource(
       AudioSource.uri(
         Uri.parse(url),
+        headers: const <String, String>{'Icy-MetaData': '1'},
         tag: await _buildSystemMediaItem(
           id: url,
           album: stationName,
@@ -197,13 +207,23 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       return;
     }
 
-    _currentItem = _currentItem!.copyWith(
+    final nextItem = _currentItem!.copyWith(
       album: stationName,
       title: title,
       artist: artist,
       description: '',
     );
+    final currentItem = _currentItem!;
+    if (nextItem.album == currentItem.album &&
+        nextItem.title == currentItem.title &&
+        nextItem.artist == currentItem.artist &&
+        nextItem.description == currentItem.description) {
+      return;
+    }
+
+    _currentItem = nextItem;
     _mediaItemController.add(_currentItem);
+    await _publishCurrentItemToSystem();
   }
 
   @override
@@ -240,6 +260,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     unawaited(_playerStateSubscription?.cancel());
     unawaited(_durationSubscription?.cancel());
     unawaited(_volumeSubscription?.cancel());
+    unawaited(_icyMetadataSubscription?.cancel());
     _statusController.close();
     _mediaItemController.close();
     unawaited(_player.dispose());
@@ -277,6 +298,79 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       displaySubtitle: artist,
       displayDescription: description,
       artUri: await _artUriFuture,
+    );
+  }
+
+  Future<void> _publishCurrentItemToSystem() async {
+    final currentItem = _currentItem;
+    if (_isDisposed || currentItem == null) {
+      return;
+    }
+
+    final systemItem = await _buildSystemMediaItem(
+      id: currentItem.id,
+      album: currentItem.album,
+      title: currentItem.title.isEmpty
+          ? (_mode == PlaybackMode.live
+                ? 'Radio FEM ao vivo'
+                : currentItem.album)
+          : currentItem.title,
+      artist: currentItem.artist.isEmpty
+          ? currentItem.album
+          : currentItem.artist,
+      description: currentItem.description,
+    );
+
+    try {
+      await AudioServiceBackground.setQueue(<bg.MediaItem>[systemItem]);
+      await AudioServiceBackground.setMediaItem(systemItem);
+    } catch (_) {
+      // Ignore platform sync failures so playback/UI updates keep working.
+    }
+  }
+
+  void _handleIcyMetadataChanged(IcyMetadata? metadata) {
+    if (_isDisposed || _mode != PlaybackMode.live || _currentItem == null) {
+      return;
+    }
+
+    final parsed = _parseIcyStreamTitle(metadata?.info?.title);
+    if (parsed == null) {
+      return;
+    }
+
+    unawaited(
+      updateLiveMetadata(
+        stationName: _currentItem!.album,
+        artist: parsed.artist,
+        title: parsed.title,
+      ),
+    );
+  }
+
+  _ParsedLiveMetadata? _parseIcyStreamTitle(String? rawTitle) {
+    final text = rawTitle?.trim() ?? '';
+    if (text.isEmpty) {
+      return null;
+    }
+
+    final parts = text
+        .split(' - ')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return null;
+    }
+
+    if (parts.length == 1) {
+      final title = parts.first;
+      return _ParsedLiveMetadata(artist: _currentItem!.artist, title: title);
+    }
+
+    return _ParsedLiveMetadata(
+      artist: parts.first,
+      title: parts.skip(1).join(' - '),
     );
   }
 
@@ -366,4 +460,11 @@ class AudioPlaybackException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class _ParsedLiveMetadata {
+  const _ParsedLiveMetadata({required this.artist, required this.title});
+
+  final String artist;
+  final String title;
 }

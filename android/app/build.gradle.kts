@@ -10,6 +10,11 @@ import java.util.Properties
 import java.util.Base64
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 
+data class PubspecVersion(
+    val name: String,
+    val code: Int,
+)
+
 val signingProps = Properties()
 val signingFile = rootProject.file("../key.properties")
 if (signingFile.exists()) {
@@ -41,10 +46,37 @@ fun localOrEnvValue(localKey: String, envKey: String): String? {
 fun encodeDartDefine(value: String): String =
     Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
 
+fun loadPubspecVersion(): PubspecVersion? {
+    val pubspecFile = rootProject.file("../pubspec.yaml")
+    if (!pubspecFile.exists()) {
+        return null
+    }
+
+    val match = Regex("""(?m)^version:\s*([^\+\s]+)\+(\d+)\s*$""")
+        .find(pubspecFile.readText())
+        ?: return null
+
+    return PubspecVersion(
+        name = match.groupValues[1],
+        code = match.groupValues[2].toInt(),
+    )
+}
+
 val analyticsApiKey = localOrEnvValue(
     "radiofem.analyticsApiKey",
     "RADIO_FEM_ANALYTICS_API_KEY",
 )
+val pubspecVersion = loadPubspecVersion()
+val appVersionName =
+    localOrEnvValue("radiofem.versionName", "RADIO_FEM_VERSION_NAME")
+        ?: pubspecVersion?.name
+        ?: flutter.versionName
+val appVersionCode =
+    localOrEnvValue("radiofem.versionCode", "RADIO_FEM_VERSION_CODE")
+        ?.toIntOrNull()
+        ?: pubspecVersion?.code
+        ?: flutter.versionCode
+
 if (!analyticsApiKey.isNullOrBlank() && !project.hasProperty("dart-defines")) {
     extensions.extraProperties["dart-defines"] = encodeDartDefine(
         "RADIO_FEM_ANALYTICS_API_KEY=$analyticsApiKey"
@@ -69,8 +101,8 @@ android {
         applicationId = "com.forroemmilao.radiofem"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     signingConfigs {
