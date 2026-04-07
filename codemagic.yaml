@@ -1,0 +1,68 @@
+workflows:
+  ios-testflight:
+    name: iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: radiofem_appstore
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.forroemmilao.radiofem
+    scripts:
+      - name: Install Flutter dependencies
+        script: |
+          flutter pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          set -e
+
+          APP_VERSION=$(sed -n 's/^version:[[:space:]]*\([^+]*\)+.*/\1/p' pubspec.yaml | head -n 1)
+
+          if [ -n "$APP_STORE_APPLE_ID" ]; then
+            LATEST_TESTFLIGHT_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" --platform IOS 2>/dev/null || true)
+            LATEST_APP_STORE_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" --platform IOS 2>/dev/null || true)
+          else
+            LATEST_TESTFLIGHT_BUILD=""
+            LATEST_APP_STORE_BUILD=""
+          fi
+
+          LATEST_KNOWN_BUILD="$LATEST_TESTFLIGHT_BUILD"
+          if [ -z "$LATEST_KNOWN_BUILD" ]; then
+            LATEST_KNOWN_BUILD="$LATEST_APP_STORE_BUILD"
+          fi
+
+          if [ -n "$LATEST_KNOWN_BUILD" ]; then
+            NEXT_BUILD_NUMBER=$(("$LATEST_KNOWN_BUILD" + 1))
+          else
+            NEXT_BUILD_NUMBER="$BUILD_NUMBER"
+          fi
+
+          echo "Using Flutter build name: $APP_VERSION"
+          echo "Using Flutter build number: $NEXT_BUILD_NUMBER"
+
+          flutter build ipa --release \
+            --build-name="$APP_VERSION" \
+            --build-number="$NEXT_BUILD_NUMBER" \
+            --dart-define=RADIO_FEM_ANALYTICS_API_KEY="${RADIO_FEM_ANALYTICS_API_KEY:-}" \
+            --export-options-plist="$CM_BUILD_DIR/ios/ExportOptions-AppStore.plist"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
