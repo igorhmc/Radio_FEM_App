@@ -12,6 +12,7 @@ export 'package:audio_service/audio_service.dart' show MediaItem;
 
 late SwitchAudioHandler _audioHandler;
 late JustAudioPlatform _platform;
+bool _isInitialized = false;
 
 /// Provides the [init] method to initialise just_audio for background playback.
 class JustAudioBackground {
@@ -72,6 +73,12 @@ class JustAudioBackground {
       androidBrowsableRootExtras: androidBrowsableRootExtras,
     );
   }
+
+  /// Updates the active media item without reloading the current source.
+  static Future<void> updateMediaItem(MediaItem mediaItem) async {
+    if (!_isInitialized) return;
+    await _playerAudioHandler.updateMediaItem(mediaItem);
+  }
 }
 
 class _JustAudioBackgroundPlugin extends JustAudioPlatform {
@@ -118,6 +125,7 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
         androidBrowsableRootExtras: androidBrowsableRootExtras,
       ),
     );
+    _isInitialized = true;
   }
 
   _JustAudioPlayer? _player;
@@ -438,6 +446,18 @@ class _PlayerAudioHandler extends BaseAudioHandler
         index! < queue.length) {
       mediaItem.add(queue[index!]);
     }
+  }
+
+  @override
+  Future<void> updateMediaItem(MediaItem item) async {
+    final updatedQueue = List<MediaItem>.from(queue.value);
+    if (index != null && index! >= 0 && index! < updatedQueue.length) {
+      updatedQueue[index!] = item;
+      queue.add(updatedQueue);
+    } else if (updatedQueue.isEmpty) {
+      queue.add(<MediaItem>[item]);
+    }
+    mediaItem.add(item);
   }
 
   Future<LoadResponse> customLoad(LoadRequest request) async {

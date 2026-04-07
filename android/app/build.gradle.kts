@@ -132,7 +132,7 @@ flutter {
 
 play {
     serviceAccountCredentials.set(rootProject.file("../play-account.json"))
-    track.set("internal")
-    releaseStatus.set(ReleaseStatus.DRAFT)
+    track.set("alpha")
+    releaseStatus.set(ReleaseStatus.COMPLETED)
     defaultToAppBundles.set(true)
 }

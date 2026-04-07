@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
@@ -40,6 +41,8 @@ class RadioFemApp extends StatelessWidget {
           apiKey: AppConfig.analyticsApiKey,
         ),
         playbackService: JustAudioRadioPlaybackService(),
+        autoplayOnInitialize:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
       )..initialize(),
       child: MaterialApp(
         title: 'Radio FEM',

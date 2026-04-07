@@ -211,7 +211,21 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     _currentItem = nextItem;
     _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
-    await _reloadLiveAudioSource();
+    await bg.JustAudioBackground.updateMediaItem(
+      await _buildSystemMediaItem(
+        id: _buildLiveMediaItemId(_currentItem!),
+        album: _currentItem!.album,
+        title: _currentItem!.title.isEmpty
+            ? 'Radio FEM ao vivo'
+            : _currentItem!.title,
+        artist: _currentItem!.artist.isEmpty
+            ? _currentItem!.album
+            : _currentItem!.artist,
+        description: 'Transmissao ao vivo',
+      ),
+    );
+    // Reopening the live source on every metadata change causes audible gaps.
+    // Keep the current connection and update only the app-facing metadata.
   }
 
   @override
@@ -305,26 +319,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
 
   String _buildLiveMediaItemId(PlaybackMediaItem item) {
     return '${item.id}#live-meta=$_liveMetadataRevision';
-  }
-
-  Future<void> _reloadLiveAudioSource() async {
-    final currentItem = _currentItem;
-    if (_isDisposed ||
-        currentItem == null ||
-        _mode != PlaybackMode.live ||
-        currentItem.id.isEmpty) {
-      return;
-    }
-
-    final wasPlaying = _player.playing;
-    try {
-      await _player.setAudioSource(await _buildLiveAudioSource(currentItem));
-      if (wasPlaying) {
-        await _player.play();
-      }
-    } catch (_) {
-      // Ignore platform refresh failures so playback/UI updates keep working.
-    }
   }
 
   void _handleIcyMetadataChanged(IcyMetadata? metadata) {

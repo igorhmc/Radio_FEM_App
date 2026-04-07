@@ -1,5 +1,4 @@
-Radio FEM 1.0.15 - Ary Lobo:
+Radio FEM 1.0.18 - Ary Lobo:
 
-- Improved live radio metadata refresh on Android notifications and Bluetooth/car displays.
-- Returning from podcasts to live now refreshes the current radio metadata automatically.
-- Kept private AzuraCast audience reports support and the Partners sync with the website.
+- Android now starts live radio playback automatically when the app opens.
+- Kept the live stream stable while refreshing the current song information.

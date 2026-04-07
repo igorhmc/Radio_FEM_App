@@ -16,6 +16,7 @@ class RadioController extends ChangeNotifier {
     required RadioApiService apiService,
     required AzuraCastReportsService reportsService,
     required RadioPlaybackService playbackService,
+    this.autoplayOnInitialize = false,
   }) : _apiService = apiService,
        _reportsService = reportsService,
        _playbackService = playbackService;
@@ -24,6 +25,7 @@ class RadioController extends ChangeNotifier {
   final AzuraCastReportsService _reportsService;
   final RadioPlaybackService _playbackService;
   final WatchControlBridgeServer _watchBridgeServer = WatchControlBridgeServer();
+  final bool autoplayOnInitialize;
 
   final Map<String, List<PodcastEpisode>> _episodesCache =
       <String, List<PodcastEpisode>>{};
@@ -119,6 +121,10 @@ class RadioController extends ChangeNotifier {
       refreshPodcasts(),
       refreshPartners(),
     ]);
+
+    if (autoplayOnInitialize && !isPlaying) {
+      await startLivePlayback();
+    }
 
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       unawaited(refreshNowPlaying());
