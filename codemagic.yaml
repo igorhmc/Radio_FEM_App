@@ -54,6 +54,7 @@ workflows:
           flutter build ipa --release \
             --build-name="$APP_VERSION" \
             --build-number="$NEXT_BUILD_NUMBER" \
+            --dart-define=RADIO_FEM_ANALYTICS_API_KEY="${RADIO_FEM_ANALYTICS_API_KEY:-}" \
             --export-options-plist="$CM_BUILD_DIR/ios/ExportOptions-AppStore.plist"
     artifacts:
       - build/ios/ipa/*.ipa

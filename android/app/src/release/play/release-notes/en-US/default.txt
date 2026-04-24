@@ -1,4 +1,4 @@
-Radio FEM 1.0.19 - Android 15 display compatibility:
+Radio FEM 1.0.20 - Audience analytics:
 
-- Improved Android 15 edge-to-edge display handling.
-- Kept navigation controls clear of system bars on newer Android versions.
+- Restored the 30-day audience analytics panel.
+- Kept the Android 15 display compatibility improvements.

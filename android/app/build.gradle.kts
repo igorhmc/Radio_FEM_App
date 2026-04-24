@@ -7,6 +7,7 @@ plugins {
 }
 
 import java.util.Properties
+import java.util.Base64
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 
 data class PubspecVersion(
@@ -42,6 +43,9 @@ fun localOrEnvValue(localKey: String, envKey: String): String? {
     return System.getenv(envKey)?.trim()?.takeIf { it.isNotEmpty() }
 }
 
+fun encodeDartDefine(value: String): String =
+    Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
+
 fun loadPubspecVersion(): PubspecVersion? {
     val pubspecFile = rootProject.file("../pubspec.yaml")
     if (!pubspecFile.exists()) {
@@ -58,6 +62,10 @@ fun loadPubspecVersion(): PubspecVersion? {
     )
 }
 
+val analyticsApiKey = localOrEnvValue(
+    "radiofem.analyticsApiKey",
+    "RADIO_FEM_ANALYTICS_API_KEY",
+)
 val pubspecVersion = loadPubspecVersion()
 val appVersionName =
     localOrEnvValue("radiofem.versionName", "RADIO_FEM_VERSION_NAME")
@@ -71,6 +79,12 @@ val appVersionCode =
 val playTrack =
     localOrEnvValue("radiofem.playTrack", "RADIO_FEM_PLAY_TRACK")
         ?: "beta"
+
+if (!analyticsApiKey.isNullOrBlank() && !project.hasProperty("dart-defines")) {
+    extensions.extraProperties["dart-defines"] = encodeDartDefine(
+        "RADIO_FEM_ANALYTICS_API_KEY=$analyticsApiKey"
+    )
+}
 
 android {
     namespace = "com.forroemmilao.radiofem"

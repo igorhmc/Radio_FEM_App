@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
+import 'src/config/app_config.dart';
 import 'src/controllers/radio_controller.dart';
 import 'src/services/azuracast_reports_service.dart';
 import 'src/services/radio_api_service.dart';
@@ -38,7 +39,9 @@ class RadioFemApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RadioController(
         apiService: RadioApiService(),
-        reportsService: AzuraCastReportsService(),
+        reportsService: AzuraCastReportsService(
+          apiKey: AppConfig.analyticsApiKey,
+        ),
         playbackService: JustAudioRadioPlaybackService(),
         autoplayOnInitialize:
             !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
