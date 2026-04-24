@@ -57,39 +57,42 @@ class _HomeShellState extends State<HomeShell> {
         ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          bottomNavigationBar: NavigationBar(
-            backgroundColor: const Color(0xD3211B18),
-            selectedIndex: _currentTab.index,
-            onDestinationSelected: (index) {
-              setState(() => _currentTab = _AppTab.values[index]);
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
-              );
-            },
-            destinations: const <NavigationDestination>[
-              NavigationDestination(
-                icon: Icon(Icons.graphic_eq_rounded),
-                label: 'Live',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.calendar_month_rounded),
-                label: 'Schedule',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.mic_none_rounded),
-                label: 'Podcasts',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.handshake_outlined),
-                label: 'Partners',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.email_outlined),
-                label: 'Info',
-              ),
-            ],
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: NavigationBar(
+              backgroundColor: const Color(0xD3211B18),
+              selectedIndex: _currentTab.index,
+              onDestinationSelected: (index) {
+                setState(() => _currentTab = _AppTab.values[index]);
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                );
+              },
+              destinations: const <NavigationDestination>[
+                NavigationDestination(
+                  icon: Icon(Icons.graphic_eq_rounded),
+                  label: 'Live',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.calendar_month_rounded),
+                  label: 'Schedule',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.mic_none_rounded),
+                  label: 'Podcasts',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.handshake_outlined),
+                  label: 'Partners',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.email_outlined),
+                  label: 'Info',
+                ),
+              ],
+            ),
           ),
           body: SafeArea(
             child: PageView(
