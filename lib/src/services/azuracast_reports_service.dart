@@ -30,7 +30,9 @@ class AzuraCastReportsService {
     DateTime? end,
   }) async {
     if (!isConfigured) {
-      throw const AzuraCastReportsException('Analytics API key is not configured.');
+      throw const AzuraCastReportsException(
+        'Analytics API key is not configured.',
+      );
     }
 
     final range = _resolveRange(start: start, end: end);
@@ -48,13 +50,14 @@ class AzuraCastReportsService {
       queryParameters: queryParameters,
     );
 
-    final listeningTimeRows = _extractList(listeningTimeJson['all'])
-        .map(ListeningTimeValue.fromJson)
-        .toList(growable: false);
-    final countryRows = _extractList(countryJson['all'])
-        .map(TopCountryAudience.fromJson)
-        .toList()
-      ..sort((left, right) => right.listeners.compareTo(left.listeners));
+    final listeningTimeRows = _extractList(
+      listeningTimeJson['all'],
+    ).map(ListeningTimeValue.fromJson).toList(growable: false);
+    final countryRows =
+        _extractList(
+            countryJson['all'],
+          ).map(TopCountryAudience.fromJson).toList()
+          ..sort((left, right) => right.listeners.compareTo(left.listeners));
 
     return AudienceSummary30d(
       listenersUnique30d: listeningTimeRows.fold<int>(
@@ -71,9 +74,9 @@ class AzuraCastReportsService {
     String path, {
     Map<String, String>? queryParameters,
   }) async {
-    final uri = Uri.parse(baseUrl).resolve(path).replace(
-      queryParameters: queryParameters,
-    );
+    final uri = Uri.parse(
+      baseUrl,
+    ).resolve(path).replace(queryParameters: queryParameters);
     final response = await _getResponse(uri, path);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -92,13 +95,22 @@ class AzuraCastReportsService {
       return decoded.map((key, value) => MapEntry(key.toString(), value));
     }
 
-    throw const AzuraCastReportsException('Unexpected JSON shape from reports API.');
+    throw const AzuraCastReportsException(
+      'Unexpected JSON shape from reports API.',
+    );
   }
 
   Future<http.Response> _getResponse(Uri uri, String path) async {
+    final trimmedApiKey = apiKey.trim();
     try {
       return await _client
-          .get(uri, headers: <String, String>{'X-API-Key': apiKey.trim()})
+          .get(
+            uri,
+            headers: <String, String>{
+              'X-API-Key': trimmedApiKey,
+              'Authorization': 'Bearer $trimmedApiKey',
+            },
+          )
           .timeout(requestTimeout);
     } on TimeoutException {
       throw AzuraCastReportsException('Request timed out for $path');
@@ -129,12 +141,18 @@ class _DateRange {
 }
 
 _DateRange _resolveRange({DateTime? start, DateTime? end}) {
-  final normalizedStart = start == null ? null : DateTime(start.year, start.month, start.day);
-  final normalizedEnd = end == null ? null : DateTime(end.year, end.month, end.day);
+  final normalizedStart = start == null
+      ? null
+      : DateTime(start.year, start.month, start.day);
+  final normalizedEnd = end == null
+      ? null
+      : DateTime(end.year, end.month, end.day);
 
   if (normalizedStart != null && normalizedEnd != null) {
     if (normalizedEnd.isBefore(normalizedStart)) {
-      throw const AzuraCastReportsException('The end date must be on or after the start date.');
+      throw const AzuraCastReportsException(
+        'The end date must be on or after the start date.',
+      );
     }
     return _DateRange(start: normalizedStart, end: normalizedEnd);
   }

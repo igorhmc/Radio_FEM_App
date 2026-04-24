@@ -1,4 +1,4 @@
-Radio FEM 1.0.20 - Audience analytics:
+Radio FEM 1.0.21 - Audience analytics fix:
 
-- Restored the 30-day audience analytics panel.
+- Fixed loading for the 30-day audience analytics panel.
 - Kept the Android 15 display compatibility improvements.
