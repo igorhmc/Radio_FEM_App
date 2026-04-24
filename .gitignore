@@ -3,6 +3,11 @@ key.properties
 play-account.json
 local.properties
 *.jks
+radio-fem-*.json
+.env
+.env.local
+.env.*
+!.env.example
 
 # Gradle / build
 .gradle/

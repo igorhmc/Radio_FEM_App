@@ -97,4 +97,28 @@ void main() {
       ),
     );
   });
+
+  test('fetchAudienceSummary30d throws timeout errors', () async {
+    final service = AzuraCastReportsService(
+      apiKey: 'test-key',
+      baseUrl: 'https://example.com/api/',
+      stationId: 1,
+      requestTimeout: const Duration(milliseconds: 10),
+      client: MockClient((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return http.Response('{}', 200);
+      }),
+    );
+
+    expect(
+      service.fetchAudienceSummary30d(),
+      throwsA(
+        isA<AzuraCastReportsException>().having(
+          (error) => error.message,
+          'message',
+          contains('Request timed out'),
+        ),
+      ),
+    );
+  });
 }

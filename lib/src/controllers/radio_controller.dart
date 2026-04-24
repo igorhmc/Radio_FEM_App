@@ -81,9 +81,9 @@ class RadioController extends ChangeNotifier {
 
   String get audienceWindowLabel => 'Last $audienceWindowDays days';
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
     if (_initialized) {
-      return;
+      return Future<void>.value();
     }
     _initialized = true;
 
@@ -110,20 +110,20 @@ class RadioController extends ChangeNotifier {
       }
     });
 
-    await Future.wait<void>(<Future<void>>[
+    unawaited(
       _watchBridgeServer.start(
         statusProvider: _bridgeStatus,
         commandHandler: _handleBridgeCommand,
       ),
-      refreshNowPlaying(),
-      refreshAudienceSnapshot(),
-      refreshSchedule(),
-      refreshPodcasts(),
-      refreshPartners(),
-    ]);
+    );
+    unawaited(refreshNowPlaying());
+    unawaited(refreshAudienceSnapshot());
+    unawaited(refreshSchedule());
+    unawaited(refreshPodcasts());
+    unawaited(refreshPartners());
 
     if (autoplayOnInitialize && !isPlaying) {
-      await startLivePlayback();
+      unawaited(startLivePlayback());
     }
 
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
@@ -147,6 +147,8 @@ class RadioController extends ChangeNotifier {
     _progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       unawaited(_refreshPlaybackProgress());
     });
+
+    return Future<void>.value();
   }
 
   Future<void> togglePlayPause() async {

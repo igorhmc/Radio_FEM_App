@@ -1,4 +1,5 @@
 class AppConfig {
+  static const requestTimeout = Duration(seconds: 8);
   static const stationName = 'Radio FEM';
   static const baseUrl = 'https://radio.forroemmilao.com/';
   static const apiBaseUrl = 'https://radio.forroemmilao.com/api/';
@@ -14,10 +15,6 @@ class AppConfig {
   static const localBridgeHost = '127.0.0.1';
   static const localBridgePort = 43871;
   static const localBridgeKey = 'radiofem-watch-bridge-v1';
-  static const analyticsApiKey = String.fromEnvironment(
-    'RADIO_FEM_ANALYTICS_API_KEY',
-    defaultValue: '',
-  );
   static const aboutShort =
       'Radio FEM is a radio station dedicated to forro in Milan, with curated music, special programming, and community-driven content.';
   static const aboutLong =

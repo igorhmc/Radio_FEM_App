@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -8,16 +9,19 @@ import '../models/azuracast_reports_models.dart';
 
 class AzuraCastReportsService {
   AzuraCastReportsService({
-    required this.apiKey,
+    this.apiKey = '',
     this.baseUrl = AppConfig.apiBaseUrl,
     this.stationId = AppConfig.analyticsStationId,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+    Duration? requestTimeout,
+  }) : _client = client ?? http.Client(),
+       requestTimeout = requestTimeout ?? AppConfig.requestTimeout;
 
   final String apiKey;
   final String baseUrl;
   final int stationId;
   final http.Client _client;
+  final Duration requestTimeout;
 
   bool get isConfigured => apiKey.trim().isNotEmpty;
 
@@ -70,10 +74,7 @@ class AzuraCastReportsService {
     final uri = Uri.parse(baseUrl).resolve(path).replace(
       queryParameters: queryParameters,
     );
-    final response = await _client.get(
-      uri,
-      headers: <String, String>{'X-API-Key': apiKey.trim()},
-    );
+    final response = await _getResponse(uri, path);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AzuraCastReportsException(
@@ -92,6 +93,16 @@ class AzuraCastReportsService {
     }
 
     throw const AzuraCastReportsException('Unexpected JSON shape from reports API.');
+  }
+
+  Future<http.Response> _getResponse(Uri uri, String path) async {
+    try {
+      return await _client
+          .get(uri, headers: <String, String>{'X-API-Key': apiKey.trim()})
+          .timeout(requestTimeout);
+    } on TimeoutException {
+      throw AzuraCastReportsException('Request timed out for $path');
+    }
   }
 }
 

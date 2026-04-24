@@ -16,7 +16,7 @@ void main() {
       ChangeNotifierProvider(
         create: (_) => RadioController(
           apiService: RadioApiService(),
-          reportsService: AzuraCastReportsService(apiKey: ''),
+          reportsService: AzuraCastReportsService(),
           playbackService: _FakePlaybackService(),
         ),
         child: const MaterialApp(home: HomeShell()),

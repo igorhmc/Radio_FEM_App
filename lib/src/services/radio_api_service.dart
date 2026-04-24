@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -7,9 +8,14 @@ import '../config/app_config.dart';
 import '../models/radio_models.dart';
 
 class RadioApiService {
-  RadioApiService({http.Client? client}) : _client = client ?? http.Client();
+  RadioApiService({
+    http.Client? client,
+    Duration? requestTimeout,
+  }) : _client = client ?? http.Client(),
+       _requestTimeout = requestTimeout ?? AppConfig.requestTimeout;
 
   final http.Client _client;
+  final Duration _requestTimeout;
 
   Future<NowPlayingInfo> fetchNowPlaying() async {
     final json = await _getJson('api/nowplaying/${AppConfig.stationShortcode}');
@@ -56,7 +62,10 @@ class RadioApiService {
 
   Future<List<PartnerItem>> fetchPartners() async {
     final uri = Uri.parse(AppConfig.partnersSourceUrl);
-    final response = await _client.get(uri);
+    final response = await _getResponse(
+      uri,
+      errorTarget: AppConfig.partnersSourceUrl,
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw RadioApiException(
         'HTTP ${response.statusCode} for ${AppConfig.partnersSourceUrl}',
@@ -171,13 +180,31 @@ class RadioApiService {
               ? null
               : queryParameters,
         );
-    final response = await _client.get(uri, headers: headers);
+    final response = await _getResponse(
+      uri,
+      headers: headers,
+      errorTarget: path,
+    );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw RadioApiException('HTTP ${response.statusCode} for $path');
     }
 
     return jsonDecode(response.body);
+  }
+
+  Future<http.Response> _getResponse(
+    Uri uri, {
+    Map<String, String>? headers,
+    required String errorTarget,
+  }) async {
+    try {
+      return await _client
+          .get(uri, headers: headers)
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw RadioApiException('Request timed out for $errorTarget');
+    }
   }
 }
 
