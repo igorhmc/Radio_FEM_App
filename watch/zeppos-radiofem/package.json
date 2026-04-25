@@ -8,7 +8,7 @@
     "preview": "zeus preview"
   },
   "devDependencies": {
-    "@zeppos/device-types": "^3.0.0",
-    "@zeppos/zml": "^0.0.38"
+    "@zeppos/device-types": "^3.0.1",
+    "@zeppos/zml": "^0.0.43"
   }
 }

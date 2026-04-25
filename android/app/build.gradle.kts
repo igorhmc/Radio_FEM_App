@@ -9,6 +9,7 @@ plugins {
 import java.util.Properties
 import java.util.Base64
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 data class PubspecVersion(
     val name: String,
@@ -96,10 +97,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.forroemmilao.radiofem"
         minSdk = 24
@@ -131,6 +128,12 @@ android {
 
 flutter {
     source = "../.."
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 play {
