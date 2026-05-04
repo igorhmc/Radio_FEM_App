@@ -24,7 +24,8 @@ class RadioController extends ChangeNotifier {
   final RadioApiService _apiService;
   final AzuraCastReportsService _reportsService;
   final RadioPlaybackService _playbackService;
-  final WatchControlBridgeServer _watchBridgeServer = WatchControlBridgeServer();
+  final WatchControlBridgeServer _watchBridgeServer =
+      WatchControlBridgeServer();
   final bool autoplayOnInitialize;
 
   final Map<String, List<PodcastEpisode>> _episodesCache =
@@ -55,6 +56,7 @@ class RadioController extends ChangeNotifier {
   bool isPartnersLoading = false;
   String playbackSourceLabel = 'Live';
   double volume = 1.0;
+  String currentArtworkUrl = '';
   String currentPodcastEpisodeTitle = '';
   String currentPodcastEpisodeDescription = '';
   String selectedPodcastTitle = '';
@@ -81,6 +83,24 @@ class RadioController extends ChangeNotifier {
 
   String get audienceWindowLabel => 'Last $audienceWindowDays days';
 
+  ScheduleItem? get currentProgram {
+    final now = DateTime.now();
+    final currentItems =
+        schedule.where((item) {
+          return !now.isBefore(item.startAt) && now.isBefore(item.endAt);
+        }).toList()..sort((a, b) {
+          final priority = (b.isFeaturedProgram ? 1 : 0).compareTo(
+            a.isFeaturedProgram ? 1 : 0,
+          );
+          if (priority != 0) {
+            return priority;
+          }
+          return b.startAt.compareTo(a.startAt);
+        });
+
+    return currentItems.firstOrNull;
+  }
+
   Future<void> initialize() {
     if (_initialized) {
       return Future<void>.value();
@@ -105,6 +125,9 @@ class RadioController extends ChangeNotifier {
         }
         if (item.title.trim().isNotEmpty) {
           nowPlayingTitle = item.title.trim();
+        }
+        if (item.artworkUrl.trim().isNotEmpty) {
+          currentArtworkUrl = item.artworkUrl.trim();
         }
         notifyListeners();
       }
@@ -174,6 +197,7 @@ class RadioController extends ChangeNotifier {
         stationName: stationName,
         artist: nowPlayingArtist,
         title: nowPlayingTitle,
+        artworkUrl: currentArtworkUrl,
       );
       isLiveStreamMode = true;
       playbackSourceLabel = 'Live';
@@ -212,6 +236,7 @@ class RadioController extends ChangeNotifier {
       );
       isLiveStreamMode = false;
       playbackSourceLabel = 'Podcast';
+      currentArtworkUrl = '';
       currentPodcastEpisodeTitle = episode.title;
       currentPodcastEpisodeDescription = episode.description;
       nowPlayingArtist = selectedPodcastTitle.isEmpty
@@ -266,10 +291,12 @@ class RadioController extends ChangeNotifier {
       if (isLiveStreamMode) {
         nowPlayingArtist = payload.artist;
         nowPlayingTitle = payload.title;
+        currentArtworkUrl = payload.artworkUrl;
         await _playbackService.updateLiveMetadata(
           stationName: payload.stationName,
           artist: payload.artist,
           title: payload.title,
+          artworkUrl: payload.artworkUrl,
         );
       }
 
@@ -300,8 +327,7 @@ class RadioController extends ChangeNotifier {
       _lastAudienceRefreshAt = DateTime.now();
       hasAudienceAnalytics = true;
       listenersLast30Days = payload.listenersUnique30d;
-      audienceWindowDays =
-          payload.end.difference(payload.start).inDays + 1;
+      audienceWindowDays = payload.end.difference(payload.start).inDays + 1;
       topCountriesLast30Days = payload.topCountries;
       audienceErrorMessage = null;
       notifyListeners();
@@ -532,8 +558,7 @@ class RadioController extends ChangeNotifier {
     } catch (_) {
       if (selectedPodcastId == podcastId) {
         isEpisodesLoading = false;
-        episodesErrorMessage =
-            'Could not load episodes for this podcast.';
+        episodesErrorMessage = 'Could not load episodes for this podcast.';
         notifyListeners();
       }
     }

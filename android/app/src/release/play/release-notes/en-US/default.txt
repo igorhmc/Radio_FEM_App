@@ -1,4 +1,5 @@
-Radio FEM 1.0.21 - Audience analytics fix:
+Radio FEM 1.0.22 - Live player improvements:
 
-- Fixed loading for the 30-day audience analytics panel.
-- Kept the Android 15 display compatibility improvements.
+- Shows the current program on the live player screen.
+- Shows track artwork when available in the live metadata.
+- Adds a QR code to share the Android download page from the Info screen.

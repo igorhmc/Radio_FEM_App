@@ -23,6 +23,7 @@ abstract class RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String artworkUrl = '',
   });
 
   Future<void> playPodcast({
@@ -36,6 +37,7 @@ abstract class RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String? artworkUrl,
   });
 
   Future<void> seekRelative(Duration delta);
@@ -124,6 +126,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String artworkUrl = '',
   }) async {
     if (url.isEmpty) {
       throw const AudioPlaybackException('Missing live stream URL.');
@@ -137,6 +140,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       artist: artist,
       description: '',
       duration: Duration.zero,
+      artworkUrl: artworkUrl,
     );
     _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
@@ -165,6 +169,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       artist: podcastTitle,
       description: description,
       duration: Duration.zero,
+      artworkUrl: '',
     );
     _mediaItemController.add(_currentItem);
     await _player.stop();
@@ -177,6 +182,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
           title: title,
           artist: podcastTitle,
           description: description,
+          artworkUrl: '',
         ),
       ),
     );
@@ -189,6 +195,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String? artworkUrl,
   }) async {
     if (_mode != PlaybackMode.live || _currentItem == null) {
       return;
@@ -199,12 +206,14 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       title: title,
       artist: artist,
       description: '',
+      artworkUrl: artworkUrl ?? _currentItem!.artworkUrl,
     );
     final currentItem = _currentItem!;
     if (nextItem.album == currentItem.album &&
         nextItem.title == currentItem.title &&
         nextItem.artist == currentItem.artist &&
-        nextItem.description == currentItem.description) {
+        nextItem.description == currentItem.description &&
+        nextItem.artworkUrl == currentItem.artworkUrl) {
       return;
     }
 
@@ -222,6 +231,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
             ? _currentItem!.album
             : _currentItem!.artist,
         description: 'Transmissao ao vivo',
+        artworkUrl: _currentItem!.artworkUrl,
       ),
     );
     // Reopening the live source on every metadata change causes audible gaps.
@@ -290,7 +300,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     required String title,
     required String artist,
     required String description,
+    required String artworkUrl,
   }) async {
+    final artworkUri = _resolveArtworkUri(artworkUrl);
     return bg.MediaItem(
       id: id,
       album: album,
@@ -299,7 +311,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       displayTitle: title,
       displaySubtitle: artist,
       displayDescription: description,
-      artUri: await _artUriFuture,
+      artUri: artworkUri ?? await _artUriFuture,
     );
   }
 
@@ -313,6 +325,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         title: item.title.isEmpty ? 'Radio FEM ao vivo' : item.title,
         artist: item.artist.isEmpty ? item.album : item.artist,
         description: 'Transmissao ao vivo',
+        artworkUrl: item.artworkUrl,
       ),
     );
   }
@@ -338,6 +351,17 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         title: parsed.title,
       ),
     );
+  }
+
+  Uri? _resolveArtworkUri(String artworkUrl) {
+    final uri = Uri.tryParse(artworkUrl.trim());
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      return null;
+    }
+    return uri;
   }
 
   _ParsedLiveMetadata? _parseIcyStreamTitle(String? rawTitle) {
@@ -405,6 +429,7 @@ class PlaybackMediaItem {
     required this.artist,
     required this.description,
     required this.duration,
+    required this.artworkUrl,
   });
 
   final String id;
@@ -413,6 +438,7 @@ class PlaybackMediaItem {
   final String artist;
   final String description;
   final Duration duration;
+  final String artworkUrl;
 
   PlaybackMediaItem copyWith({
     String? id,
@@ -421,6 +447,7 @@ class PlaybackMediaItem {
     String? artist,
     String? description,
     Duration? duration,
+    String? artworkUrl,
   }) {
     return PlaybackMediaItem(
       id: id ?? this.id,
@@ -429,6 +456,7 @@ class PlaybackMediaItem {
       artist: artist ?? this.artist,
       description: description ?? this.description,
       duration: duration ?? this.duration,
+      artworkUrl: artworkUrl ?? this.artworkUrl,
     );
   }
 }

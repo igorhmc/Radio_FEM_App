@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
@@ -126,7 +127,6 @@ class _PlayerTab extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 620;
-        final heroHeight = isWide ? 380.0 : 316.0;
         final currentTitle = controller.isLiveStreamMode
             ? controller.nowPlayingTitle
             : (controller.currentPodcastEpisodeTitle.isEmpty
@@ -137,6 +137,13 @@ class _PlayerTab extends StatelessWidget {
             : controller.nowPlayingArtist.trim().isEmpty
             ? controller.playbackSourceLabel
             : controller.nowPlayingArtist;
+        final currentProgram = controller.currentProgram;
+        final currentArtworkUrl = controller.isLiveStreamMode
+            ? controller.currentArtworkUrl
+            : '';
+        final heroHeight = currentArtworkUrl.isEmpty
+            ? (isWide ? 380.0 : 316.0)
+            : (isWide ? 400.0 : 380.0);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
@@ -151,9 +158,7 @@ class _PlayerTab extends StatelessWidget {
                     padding: EdgeInsets.all(isWide ? 28 : 22),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: const Color(0x33FFD34D),
-                      ),
+                      border: Border.all(color: const Color(0x33FFD34D)),
                       image: const DecorationImage(
                         image: AssetImage('assets/images/radio_bg.png'),
                         fit: BoxFit.cover,
@@ -184,22 +189,36 @@ class _PlayerTab extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                _InfoPill(
-                                  label: controller.playbackSourceLabel,
-                                  value: controller.isPlaying
-                                      ? 'Playing'
-                                      : 'Paused',
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      _InfoPill(
+                                        label: controller.playbackSourceLabel,
+                                        value: controller.isPlaying
+                                            ? 'Playing'
+                                            : 'Paused',
+                                      ),
+                                      _InfoPill(
+                                        label: controller.audienceWindowLabel,
+                                        value: controller.hasAudienceAnalytics
+                                            ? '${controller.listenersLast30Days}'
+                                            : 'Unavailable',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                _InfoPill(
-                                  label: controller.audienceWindowLabel,
-                                  value: controller.hasAudienceAnalytics
-                                      ? '${controller.listenersLast30Days}'
-                                      : 'Unavailable',
-                                ),
+                                if (currentArtworkUrl.isNotEmpty) ...<Widget>[
+                                  const SizedBox(width: 12),
+                                  _NowPlayingArtwork(
+                                    artworkUrl: currentArtworkUrl,
+                                    size: isWide ? 112 : 86,
+                                  ),
+                                ],
                               ],
                             ),
                             const Spacer(),
@@ -214,15 +233,18 @@ class _PlayerTab extends StatelessWidget {
                             const SizedBox(height: 10),
                             Text(
                               currentTitle,
-                              maxLines: isWide ? 3 : 4,
+                              maxLines: isWide || currentArtworkUrl.isNotEmpty
+                                  ? 3
+                                  : 4,
                               overflow: TextOverflow.ellipsis,
-                              style: (isWide
-                                      ? textTheme.displaySmall
-                                      : textTheme.headlineMedium)
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.02,
-                                  ),
+                              style:
+                                  (isWide
+                                          ? textTheme.displaySmall
+                                          : textTheme.headlineMedium)
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.02,
+                                      ),
                             ),
                             const SizedBox(height: 10),
                             Text(
@@ -235,7 +257,8 @@ class _PlayerTab extends StatelessWidget {
                               ),
                             ),
                             if (!controller.isLiveStreamMode &&
-                                controller.currentPodcastEpisodeDescription
+                                controller
+                                    .currentPodcastEpisodeDescription
                                     .isNotEmpty) ...<Widget>[
                               const SizedBox(height: 12),
                               Text(
@@ -260,10 +283,14 @@ class _PlayerTab extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          if (controller.isLoading || controller.isBuffering) ...<Widget>[
-                            const Center(
-                              child: CircularProgressIndicator(),
-                            ),
+                          if (controller.isLiveStreamMode &&
+                              currentProgram != null) ...<Widget>[
+                            _CurrentProgramBanner(program: currentProgram),
+                            const SizedBox(height: 14),
+                          ],
+                          if (controller.isLoading ||
+                              controller.isBuffering) ...<Widget>[
+                            const Center(child: CircularProgressIndicator()),
                             const SizedBox(height: 16),
                           ],
                           if (isWide)
@@ -289,7 +316,8 @@ class _PlayerTab extends StatelessWidget {
                                   child: OutlinedButton.icon(
                                     onPressed: () async {
                                       await controller.refreshNowPlaying();
-                                      await controller.refreshAudienceSnapshot();
+                                      await controller
+                                          .refreshAudienceSnapshot();
                                     },
                                     icon: const Icon(Icons.refresh_rounded),
                                     label: const Text('Refresh status'),
@@ -306,9 +334,7 @@ class _PlayerTab extends StatelessWidget {
                                     : Icons.play_circle_fill_rounded,
                               ),
                               label: Text(
-                                controller.isPlaying
-                                    ? 'Pause'
-                                    : 'Listen now',
+                                controller.isPlaying ? 'Pause' : 'Listen now',
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -329,7 +355,8 @@ class _PlayerTab extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             Slider(
-                              value: controller.podcastDuration.inMilliseconds == 0
+                              value:
+                                  controller.podcastDuration.inMilliseconds == 0
                                   ? 0
                                   : controller.podcastPosition.inMilliseconds
                                         .clamp(
@@ -339,7 +366,8 @@ class _PlayerTab extends StatelessWidget {
                                               .inMilliseconds,
                                         )
                                         .toDouble(),
-                              max: controller.podcastDuration.inMilliseconds <= 0
+                              max:
+                                  controller.podcastDuration.inMilliseconds <= 0
                                   ? 1
                                   : controller.podcastDuration.inMilliseconds
                                         .toDouble(),
@@ -353,14 +381,17 @@ class _PlayerTab extends StatelessWidget {
                                     },
                             ),
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: <Widget>[
                                 Text(
-                                  _formatPlaybackTime(controller.podcastPosition),
+                                  _formatPlaybackTime(
+                                    controller.podcastPosition,
+                                  ),
                                 ),
                                 Text(
-                                  _formatPlaybackTime(controller.podcastDuration),
+                                  _formatPlaybackTime(
+                                    controller.podcastDuration,
+                                  ),
                                 ),
                               ],
                             ),
@@ -410,7 +441,8 @@ class _PlayerTab extends StatelessWidget {
                               ),
                             ),
                           ],
-                          if (controller.playerErrorMessage != null) ...<Widget>[
+                          if (controller.playerErrorMessage !=
+                              null) ...<Widget>[
                             const SizedBox(height: 8),
                             Text(
                               controller.playerErrorMessage!,
@@ -420,7 +452,8 @@ class _PlayerTab extends StatelessWidget {
                               ),
                             ),
                           ],
-                          if (controller.audienceErrorMessage != null) ...<Widget>[
+                          if (controller.audienceErrorMessage !=
+                              null) ...<Widget>[
                             const SizedBox(height: 8),
                             Text(
                               controller.audienceErrorMessage!,
@@ -444,6 +477,91 @@ class _PlayerTab extends StatelessWidget {
   }
 }
 
+class _NowPlayingArtwork extends StatelessWidget {
+  const _NowPlayingArtwork({required this.artworkUrl, required this.size});
+
+  final String artworkUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox.square(
+        dimension: size,
+        child: Image.network(
+          artworkUrl,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, error, stackTrace) => Container(
+            color: const Color(0xAA1F1A17),
+            alignment: Alignment.center,
+            child: const Icon(Icons.album_rounded),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentProgramBanner extends StatelessWidget {
+  const _CurrentProgramBanner({required this.program});
+
+  final ScheduleItem program;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x332A211B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x45FFD34D)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.radio_rounded, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Program on air',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  program.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatTimeRange(program),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFFFFD34D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoPill extends StatelessWidget {
   const _InfoPill({required this.label, required this.value});
 
@@ -462,9 +580,9 @@ class _InfoPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: RichText(
           text: TextSpan(
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: Colors.white),
             children: <InlineSpan>[
               TextSpan(
                 text: '$label: ',
@@ -504,16 +622,16 @@ class _StatTile extends StatelessWidget {
         children: <Widget>[
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Colors.white70,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: Colors.white70),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -540,9 +658,9 @@ class _TopCountriesCard extends StatelessWidget {
         children: <Widget>[
           Text(
             'Top countries in the ${controller.audienceWindowLabel.toLowerCase()}',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
           if (controller.hasAudienceAnalytics &&
@@ -1080,7 +1198,9 @@ class _PartnersTab extends StatelessWidget {
                           errorBuilder: (_, error, stackTrace) => Container(
                             color: const Color(0x261F1A17),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.image_not_supported_outlined),
+                            child: const Icon(
+                              Icons.image_not_supported_outlined,
+                            ),
                           ),
                         ),
                       ),
@@ -1171,6 +1291,57 @@ class _ContactTab extends StatelessWidget {
                   onPressed: () => _openUrl(AppConfig.forroEmMilaoWebsiteUrl),
                   icon: const Icon(Icons.language_rounded),
                   label: const Text('Open FEM Website'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Android app',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Scan this QR code to open the Android download page.',
+                ),
+                const SizedBox(height: 14),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: QrImageView(
+                      data: AppConfig.androidDownloadUrl,
+                      version: QrVersions.auto,
+                      size: 190,
+                      backgroundColor: Colors.white,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Color(0xFF120F0E),
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Color(0xFF120F0E),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: () => _openUrl(AppConfig.androidDownloadUrl),
+                  icon: const Icon(Icons.android),
+                  label: const Text('Open Android download page'),
                 ),
               ],
             ),

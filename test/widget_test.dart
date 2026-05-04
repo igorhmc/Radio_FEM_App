@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:radio_fem_app/src/controllers/radio_controller.dart';
 import 'package:radio_fem_app/src/services/azuracast_reports_service.dart';
@@ -28,6 +29,12 @@ void main() {
     expect(find.text('Podcasts'), findsOneWidget);
     expect(find.text('Partners'), findsOneWidget);
     expect(find.text('Info'), findsOneWidget);
+
+    await tester.tap(find.text('Info'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Android app'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
   });
 }
 
@@ -59,6 +66,7 @@ class _FakePlaybackService extends RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String artworkUrl = '',
   }) async {}
 
   @override
@@ -103,6 +111,7 @@ class _FakePlaybackService extends RadioPlaybackService {
     required String stationName,
     required String artist,
     required String title,
+    String? artworkUrl,
   }) async {}
 
   @override

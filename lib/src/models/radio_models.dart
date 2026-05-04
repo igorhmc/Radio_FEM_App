@@ -4,12 +4,14 @@ class NowPlayingInfo {
     required this.listeners,
     required this.artist,
     required this.title,
+    required this.artworkUrl,
   });
 
   final String stationName;
   final int listeners;
   final String artist;
   final String title;
+  final String artworkUrl;
 
   factory NowPlayingInfo.fromJson(Map<String, dynamic> json) {
     final station = _asMap(json['station']);
@@ -38,6 +40,7 @@ class NowPlayingInfo {
       listeners: _asInt(listeners['current']),
       artist: artist.isEmpty ? 'Unknown Artist' : artist,
       title: title.isEmpty ? (rawText.isEmpty ? 'Live Track' : rawText) : title,
+      artworkUrl: _asString(song['art']).trim(),
     );
   }
 }

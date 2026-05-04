@@ -8,6 +8,8 @@ class AppConfig {
   static const streamUrl =
       'https://radio.forroemmilao.com/listen/radiofem/android.mp3';
   static const websiteUrl = 'https://radio.forroemmilao.com/public/radiofem';
+  static const androidDownloadUrl =
+      'https://play.google.com/store/apps/details?id=com.forroemmilao.radiofem';
   static const forroEmMilaoWebsiteUrl = 'https://www.forroemmilao.com';
   static const partnersSourceUrl =
       'https://www.forroemmilao.com/radio.html?lang=en';
