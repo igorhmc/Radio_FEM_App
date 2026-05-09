@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -190,7 +191,11 @@ class RadioApiService {
       throw RadioApiException('HTTP ${response.statusCode} for $path');
     }
 
-    return jsonDecode(response.body);
+    try {
+      return jsonDecode(response.body);
+    } on FormatException {
+      throw RadioApiException('Invalid JSON payload for $path');
+    }
   }
 
   Future<http.Response> _getResponse(
@@ -204,6 +209,10 @@ class RadioApiService {
           .timeout(_requestTimeout);
     } on TimeoutException {
       throw RadioApiException('Request timed out for $errorTarget');
+    } on SocketException {
+      throw RadioApiException('Network unavailable for $errorTarget');
+    } on http.ClientException {
+      throw RadioApiException('HTTP client failure for $errorTarget');
     }
   }
 }

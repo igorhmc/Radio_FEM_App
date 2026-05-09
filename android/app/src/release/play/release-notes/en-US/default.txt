@@ -1,5 +1,5 @@
-Radio FEM 1.0.22 - Live player improvements:
+Radio FEM 1.0.23 - Driving media integration:
 
-- Shows the current program on the live player screen.
-- Shows track artwork when available in the live metadata.
-- Adds a QR code to share the Android download page from the Info screen.
+- Adds Android Auto media app discovery.
+- Improves external playback controls for Google Maps, Bluetooth, headphones, and system media controls.
+- Keeps live radio metadata available to Android media clients.

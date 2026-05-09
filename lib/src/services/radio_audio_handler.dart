@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart' as bg;
 
+import '../config/app_config.dart';
+
 abstract class RadioPlaybackService {
   Stream<PlaybackStatus> get statusStream;
 
@@ -78,6 +80,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     _icyMetadataSubscription = _player.icyMetadataStream.listen(
       _handleIcyMetadataChanged,
     );
+    unawaited(_configureExternalMediaBrowse());
     _emitStatus();
   }
 
@@ -232,6 +235,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
             : _currentItem!.artist,
         description: 'Transmissao ao vivo',
         artworkUrl: _currentItem!.artworkUrl,
+        isLive: true,
       ),
     );
     // Reopening the live source on every metadata change causes audible gaps.
@@ -301,6 +305,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     required String artist,
     required String description,
     required String artworkUrl,
+    bool isLive = false,
   }) async {
     final artworkUri = _resolveArtworkUri(artworkUrl);
     return bg.MediaItem(
@@ -308,10 +313,17 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       album: album,
       title: title,
       artist: artist,
+      genre: 'Forro',
       displayTitle: title,
       displaySubtitle: artist,
       displayDescription: description,
       artUri: artworkUri ?? await _artUriFuture,
+      isLive: isLive,
+      duration: isLive ? null : Duration.zero,
+      extras: const <String, dynamic>{
+        bg.AndroidContentStyle.playableHintKey:
+            bg.AndroidContentStyle.listItemHintValue,
+      },
     );
   }
 
@@ -326,7 +338,32 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         artist: item.artist.isEmpty ? item.album : item.artist,
         description: 'Transmissao ao vivo',
         artworkUrl: item.artworkUrl,
+        isLive: true,
       ),
+    );
+  }
+
+  Future<void> _configureExternalMediaBrowse() async {
+    await bg.JustAudioBackground.setBrowseTree(
+      rootChildren: <bg.MediaItem>[
+        bg.MediaItem(
+          id: AppConfig.streamUrl,
+          album: AppConfig.stationName,
+          title: 'Radio FEM ao vivo',
+          artist: AppConfig.stationName,
+          genre: 'Forro',
+          displayTitle: 'Radio FEM ao vivo',
+          displaySubtitle: 'Forro em Milao',
+          displayDescription: 'Transmissao ao vivo',
+          artUri: await _artUriFuture,
+          isLive: true,
+          playable: true,
+          extras: const <String, dynamic>{
+            bg.AndroidContentStyle.playableHintKey:
+                bg.AndroidContentStyle.listItemHintValue,
+          },
+        ),
+      ],
     );
   }
 

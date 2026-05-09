@@ -108,6 +108,12 @@ class RadioController extends ChangeNotifier {
     _initialized = true;
 
     _playbackSubscription = _playbackService.statusStream.listen((state) {
+      if (isPlaying == state.isPlaying &&
+          isBuffering == state.isBuffering &&
+          isLiveStreamMode == state.isLive &&
+          volume == state.volume) {
+        return;
+      }
       isPlaying = state.isPlaying;
       isBuffering = state.isBuffering;
       isLiveStreamMode = state.isLive;
@@ -120,14 +126,30 @@ class RadioController extends ChangeNotifier {
         return;
       }
       if (isLiveStreamMode) {
+        var changed = false;
         if (item.artist.trim().isNotEmpty) {
-          nowPlayingArtist = item.artist.trim();
+          final nextArtist = item.artist.trim();
+          if (nextArtist != nowPlayingArtist) {
+            nowPlayingArtist = nextArtist;
+            changed = true;
+          }
         }
         if (item.title.trim().isNotEmpty) {
-          nowPlayingTitle = item.title.trim();
+          final nextTitle = item.title.trim();
+          if (nextTitle != nowPlayingTitle) {
+            nowPlayingTitle = nextTitle;
+            changed = true;
+          }
         }
         if (item.artworkUrl.trim().isNotEmpty) {
-          currentArtworkUrl = item.artworkUrl.trim();
+          final nextArtworkUrl = item.artworkUrl.trim();
+          if (nextArtworkUrl != currentArtworkUrl) {
+            currentArtworkUrl = nextArtworkUrl;
+            changed = true;
+          }
+        }
+        if (!changed) {
+          return;
         }
         notifyListeners();
       }
@@ -596,8 +618,8 @@ class RadioController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _playbackSubscription?.cancel();
-    _mediaItemSubscription?.cancel();
+    unawaited(_playbackSubscription?.cancel());
+    unawaited(_mediaItemSubscription?.cancel());
     _pollTimer?.cancel();
     _progressTimer?.cancel();
     unawaited(_watchBridgeServer.stop());

@@ -17,7 +17,17 @@ Future<void> main() async {
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.forroemmilao.radiofem.playback',
     androidNotificationChannelName: 'Radio FEM Playback',
+    androidNotificationChannelDescription:
+        'Controles de reproducao da Radio FEM',
     androidNotificationOngoing: true,
+    androidStopForegroundOnPause: false,
+    androidBrowsableRootExtras: const <String, dynamic>{
+      AndroidContentStyle.supportedKey: true,
+      AndroidContentStyle.playableHintKey:
+          AndroidContentStyle.listItemHintValue,
+      AndroidContentStyle.browsableHintKey:
+          AndroidContentStyle.listItemHintValue,
+    },
   );
   runApp(const RadioFemApp());
 }

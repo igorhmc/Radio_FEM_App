@@ -12,6 +12,29 @@ enum _AppTab { player, schedule, podcasts, partners, contact }
 
 enum _ScheduleMode { weekly, monthly }
 
+typedef _ScheduleTabViewState = ({
+  List<ScheduleItem> schedule,
+  bool isScheduleLoading,
+  String? scheduleErrorMessage,
+});
+
+typedef _PodcastsTabViewState = ({
+  bool isPodcastsLoading,
+  String? podcastsErrorMessage,
+  List<PodcastItem> podcasts,
+  String? selectedPodcastId,
+  String selectedPodcastTitle,
+  bool isEpisodesLoading,
+  String? episodesErrorMessage,
+  List<PodcastEpisode> podcastEpisodes,
+});
+
+typedef _PartnersTabViewState = ({
+  bool isPartnersLoading,
+  String? partnersErrorMessage,
+  List<PartnerItem> partners,
+});
+
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -485,12 +508,17 @@ class _NowPlayingArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final targetSize = (size * pixelRatio).round();
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox.square(
         dimension: size,
         child: Image.network(
           artworkUrl,
+          cacheWidth: targetSize,
+          cacheHeight: targetSize,
           fit: BoxFit.cover,
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
@@ -736,12 +764,19 @@ class _ScheduleTabState extends State<_ScheduleTab> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<RadioController>();
+    final controller = context.read<RadioController>();
+    final viewState = context.select<RadioController, _ScheduleTabViewState>(
+      (value) => (
+        schedule: value.schedule,
+        isScheduleLoading: value.isScheduleLoading,
+        scheduleErrorMessage: value.scheduleErrorMessage,
+      ),
+    );
     final range = _currentRange();
     _ensureRangeLoaded(controller, range);
 
     final visibleItems =
-        controller.schedule
+        viewState.schedule
             .where(
               (item) =>
                   !item.endAt.isBefore(range.start) &&
@@ -845,22 +880,22 @@ class _ScheduleTabState extends State<_ScheduleTab> {
           ],
         ),
         const SizedBox(height: 12),
-        if (controller.isScheduleLoading)
+        if (viewState.isScheduleLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator()),
           ),
-        if (controller.scheduleErrorMessage != null) ...<Widget>[
+        if (viewState.scheduleErrorMessage != null) ...<Widget>[
           Text(
-            controller.scheduleErrorMessage!,
+            viewState.scheduleErrorMessage!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.error,
             ),
           ),
           const SizedBox(height: 12),
         ],
-        if (!controller.isScheduleLoading &&
-            controller.scheduleErrorMessage == null &&
+        if (!viewState.isScheduleLoading &&
+            viewState.scheduleErrorMessage == null &&
             visibleItems.isEmpty)
           Card(
             child: Padding(
@@ -986,7 +1021,19 @@ class _PodcastsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<RadioController>();
+    final controller = context.read<RadioController>();
+    final viewState = context.select<RadioController, _PodcastsTabViewState>(
+      (value) => (
+        isPodcastsLoading: value.isPodcastsLoading,
+        podcastsErrorMessage: value.podcastsErrorMessage,
+        podcasts: value.podcasts,
+        selectedPodcastId: value.selectedPodcastId,
+        selectedPodcastTitle: value.selectedPodcastTitle,
+        isEpisodesLoading: value.isEpisodesLoading,
+        episodesErrorMessage: value.episodesErrorMessage,
+        podcastEpisodes: value.podcastEpisodes,
+      ),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
@@ -1000,22 +1047,22 @@ class _PodcastsTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (controller.isPodcastsLoading)
+        if (viewState.isPodcastsLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator()),
           ),
-        if (controller.podcastsErrorMessage != null) ...<Widget>[
+        if (viewState.podcastsErrorMessage != null) ...<Widget>[
           Text(
-            controller.podcastsErrorMessage!,
+            viewState.podcastsErrorMessage!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.error,
             ),
           ),
           const SizedBox(height: 12),
         ],
-        if (controller.selectedPodcastId == null)
-          ...controller.podcasts.expand((podcast) sync* {
+        if (viewState.selectedPodcastId == null)
+          ...viewState.podcasts.expand((podcast) sync* {
             yield Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1069,27 +1116,27 @@ class _PodcastsTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            controller.selectedPodcastTitle,
+            viewState.selectedPodcastTitle,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
-          if (controller.isEpisodesLoading)
+          if (viewState.isEpisodesLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
             ),
-          if (controller.episodesErrorMessage != null) ...<Widget>[
+          if (viewState.episodesErrorMessage != null) ...<Widget>[
             Text(
-              controller.episodesErrorMessage!,
+              viewState.episodesErrorMessage!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.error,
               ),
             ),
             const SizedBox(height: 12),
           ],
-          ...controller.podcastEpisodes.expand((episode) sync* {
+          ...viewState.podcastEpisodes.expand((episode) sync* {
             yield Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1152,7 +1199,14 @@ class _PartnersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<RadioController>();
+    final controller = context.read<RadioController>();
+    final viewState = context.select<RadioController, _PartnersTabViewState>(
+      (value) => (
+        isPartnersLoading: value.isPartnersLoading,
+        partnersErrorMessage: value.partnersErrorMessage,
+        partners: value.partners,
+      ),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
@@ -1166,21 +1220,21 @@ class _PartnersTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (controller.isPartnersLoading)
+        if (viewState.isPartnersLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator()),
           ),
-        if (controller.partnersErrorMessage != null) ...<Widget>[
+        if (viewState.partnersErrorMessage != null) ...<Widget>[
           Text(
-            controller.partnersErrorMessage!,
+            viewState.partnersErrorMessage!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.error,
             ),
           ),
           const SizedBox(height: 12),
         ],
-        ...controller.partners.expand((partner) sync* {
+        ...viewState.partners.expand((partner) sync* {
           yield Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1234,9 +1288,9 @@ class _PartnersTab extends StatelessWidget {
           );
           yield const SizedBox(height: 12);
         }),
-        if (!controller.isPartnersLoading &&
-            controller.partnersErrorMessage == null &&
-            controller.partners.isEmpty)
+        if (!viewState.isPartnersLoading &&
+          viewState.partnersErrorMessage == null &&
+          viewState.partners.isEmpty)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
