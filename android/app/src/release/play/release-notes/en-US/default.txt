@@ -1,5 +1,5 @@
-Radio FEM 1.0.23 - Driving media integration:
+Radio FEM 1.0.24 - Driving media integration fix:
 
 - Adds Android Auto media app discovery.
-- Improves external playback controls for Google Maps, Bluetooth, headphones, and system media controls.
+- Fixes playback when audio is started from Google Maps, Android Auto, Bluetooth, headphones, and system media controls.
 - Keeps live radio metadata available to Android media clients.

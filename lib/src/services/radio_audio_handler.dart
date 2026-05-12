@@ -80,7 +80,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     _icyMetadataSubscription = _player.icyMetadataStream.listen(
       _handleIcyMetadataChanged,
     );
-    unawaited(_configureExternalMediaBrowse());
+    _configureExternalMediaBrowse();
     _emitStatus();
   }
 
@@ -343,7 +343,16 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     );
   }
 
-  Future<void> _configureExternalMediaBrowse() async {
+  void _configureExternalMediaBrowse() {
+    _publishExternalMediaBrowse();
+    unawaited(
+      _artUriFuture.then(
+        (artUri) => _publishExternalMediaBrowse(artUri: artUri),
+      ),
+    );
+  }
+
+  Future<void> _publishExternalMediaBrowse({Uri? artUri}) async {
     await bg.JustAudioBackground.setBrowseTree(
       rootChildren: <bg.MediaItem>[
         bg.MediaItem(
@@ -355,7 +364,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
           displayTitle: 'Radio FEM ao vivo',
           displaySubtitle: 'Forro em Milao',
           displayDescription: 'Transmissao ao vivo',
-          artUri: await _artUriFuture,
+          artUri: artUri,
           isLive: true,
           playable: true,
           extras: const <String, dynamic>{

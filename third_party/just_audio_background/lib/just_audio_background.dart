@@ -706,6 +706,11 @@ class _PlayerAudioHandler extends BaseAudioHandler
     final mediaIndex = _queueIndexForMediaId(mediaId);
     if (mediaIndex != null) {
       await skipToQueueItem(mediaIndex);
+    } else {
+      final browseItem = await getMediaItem(mediaId);
+      if (browseItem != null && _isPlayable(browseItem)) {
+        await _loadBrowseMediaItem(browseItem);
+      }
     }
     await play();
   }
@@ -743,6 +748,12 @@ class _PlayerAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> play() async {
+    if (currentQueue.isEmpty) {
+      final browseItem = _firstPlayableBrowseItem();
+      if (browseItem != null) {
+        await _loadBrowseMediaItem(browseItem);
+      }
+    }
     if (_justAudioEvent.processingState == ProcessingStateMessage.completed) {
       await skipToQueueItem(0);
     }
@@ -752,6 +763,36 @@ class _PlayerAudioHandler extends BaseAudioHandler
       _broadcastState();
       await (await _player).play(PlayRequest());
     }
+  }
+
+  Future<void> _loadBrowseMediaItem(MediaItem item) async {
+    final audioSource = _audioSourceMessageForBrowseItem(item);
+    if (audioSource == null) {
+      return;
+    }
+
+    _source = audioSource;
+    index = 0;
+    _updateShuffleIndices();
+    _updateQueue();
+    mediaItem.add(item);
+    _justAudioEvent = _justAudioEvent.copyWith(
+      processingState: ProcessingStateMessage.loading,
+      updateTime: DateTime.now(),
+      updatePosition: Duration.zero,
+      bufferedPosition: Duration.zero,
+      duration: item.duration,
+      currentIndex: 0,
+    );
+    _broadcastState();
+
+    await (await _player).load(
+      LoadRequest(
+        audioSourceMessage: audioSource,
+        initialPosition: Duration.zero,
+        initialIndex: 0,
+      ),
+    );
   }
 
   @override
@@ -983,6 +1024,55 @@ class _PlayerAudioHandler extends BaseAudioHandler
         }
       }
     }
+  }
+
+  MediaItem? _firstPlayableBrowseItem() {
+    for (final item in _allBrowseItems()) {
+      if (_isPlayable(item)) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  AudioSourceMessage? _audioSourceMessageForBrowseItem(MediaItem item) {
+    final uri = Uri.tryParse(item.id);
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+    if (uri.scheme != 'http' &&
+        uri.scheme != 'https' &&
+        uri.scheme != 'file' &&
+        uri.scheme != 'asset') {
+      return null;
+    }
+
+    final headers = item.isLive == true
+        ? const <String, String>{'Icy-MetaData': '1'}
+        : null;
+    final path = uri.path.toLowerCase();
+    if (path.endsWith('.m3u8')) {
+      return HlsAudioSourceMessage(
+        id: item.id,
+        uri: item.id,
+        headers: headers,
+        tag: item,
+      );
+    }
+    if (path.endsWith('.mpd')) {
+      return DashAudioSourceMessage(
+        id: item.id,
+        uri: item.id,
+        headers: headers,
+        tag: item,
+      );
+    }
+    return ProgressiveAudioSourceMessage(
+      id: item.id,
+      uri: item.id,
+      headers: headers,
+      tag: item,
+    );
   }
 
   int? _queueIndexForMediaId(String mediaId) {

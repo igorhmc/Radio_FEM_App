@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -29,11 +28,13 @@ Future<void> main() async {
           AndroidContentStyle.listItemHintValue,
     },
   );
-  runApp(const RadioFemApp());
+  runApp(RadioFemApp(playbackService: JustAudioRadioPlaybackService()));
 }
 
 class RadioFemApp extends StatelessWidget {
-  const RadioFemApp({super.key});
+  const RadioFemApp({required this.playbackService, super.key});
+
+  final RadioPlaybackService playbackService;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +53,7 @@ class RadioFemApp extends StatelessWidget {
         reportsService: AzuraCastReportsService(
           apiKey: AppConfig.analyticsApiKey,
         ),
-        playbackService: JustAudioRadioPlaybackService(),
-        autoplayOnInitialize:
-            !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
+        playbackService: playbackService,
       )..initialize(),
       child: MaterialApp(
         title: 'Radio FEM',
