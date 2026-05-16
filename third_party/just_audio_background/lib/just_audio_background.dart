@@ -8,8 +8,7 @@ import 'package:just_audio_platform_interface/just_audio_platform_interface.dart
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
-export 'package:audio_service/audio_service.dart'
-    show AndroidContentStyle, MediaItem;
+export 'package:audio_service/audio_service.dart' show MediaItem;
 
 late SwitchAudioHandler _audioHandler;
 late JustAudioPlatform _platform;
@@ -79,20 +78,6 @@ class JustAudioBackground {
   static Future<void> updateMediaItem(MediaItem mediaItem) async {
     if (!_isInitialized) return;
     await _playerAudioHandler.updateMediaItem(mediaItem);
-  }
-
-  /// Updates the media browser tree exposed to external clients such as
-  /// Android Auto.
-  static Future<void> setBrowseTree({
-    required List<MediaItem> rootChildren,
-    Map<String, List<MediaItem>> childrenByParent =
-        const <String, List<MediaItem>>{},
-  }) async {
-    if (!_isInitialized) return;
-    await _playerAudioHandler.setBrowseTree(
-      rootChildren: rootChildren,
-      childrenByParent: childrenByParent,
-    );
   }
 }
 
@@ -391,11 +376,6 @@ class _PlayerAudioHandler extends BaseAudioHandler
   List<int> _shuffleIndicesInv = [];
   List<int> _effectiveIndices = [];
   List<int> _effectiveIndicesInv = [];
-  Map<String, List<MediaItem>> _browseChildrenByParent =
-      <String, List<MediaItem>>{};
-  final Map<String, BehaviorSubject<Map<String, dynamic>>>
-      _childrenSubscriptions =
-      <String, BehaviorSubject<Map<String, dynamic>>>{};
 
   Future<AudioPlayerPlatform> get _player => _playerCompleter.future;
   int? index;
@@ -478,26 +458,6 @@ class _PlayerAudioHandler extends BaseAudioHandler
       queue.add(<MediaItem>[item]);
     }
     mediaItem.add(item);
-  }
-
-  Future<void> setBrowseTree({
-    required List<MediaItem> rootChildren,
-    Map<String, List<MediaItem>> childrenByParent =
-        const <String, List<MediaItem>>{},
-  }) async {
-    _browseChildrenByParent = <String, List<MediaItem>>{
-      AudioService.browsableRootId: List<MediaItem>.unmodifiable(rootChildren),
-      AudioService.recentRootId:
-          List<MediaItem>.unmodifiable(rootChildren.where(_isPlayable).take(1)),
-      for (final entry in childrenByParent.entries)
-        entry.key: List<MediaItem>.unmodifiable(entry.value),
-    };
-
-    for (final subject in _childrenSubscriptions.values) {
-      subject.add(<String, dynamic>{
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
-    }
   }
 
   Future<LoadResponse> customLoad(LoadRequest request) async {
@@ -701,59 +661,7 @@ class _PlayerAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> playFromMediaId(String mediaId,
-      [Map<String, dynamic>? extras]) async {
-    final mediaIndex = _queueIndexForMediaId(mediaId);
-    if (mediaIndex != null) {
-      await skipToQueueItem(mediaIndex);
-    } else {
-      final browseItem = await getMediaItem(mediaId);
-      if (browseItem != null && _isPlayable(browseItem)) {
-        await _loadBrowseMediaItem(browseItem);
-      }
-    }
-    await play();
-  }
-
-  @override
-  Future<void> playMediaItem(MediaItem mediaItem) =>
-      playFromMediaId(mediaItem.id);
-
-  @override
-  Future<void> playFromSearch(String query,
-      [Map<String, dynamic>? extras]) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    final item =
-        _allBrowseItems().where(_isPlayable).cast<MediaItem?>().firstWhere(
-      (item) {
-        if (item == null) return false;
-        if (normalizedQuery.isEmpty) return true;
-        final searchable = <String>[
-          item.title,
-          item.album ?? '',
-          item.artist ?? '',
-          item.displayTitle ?? '',
-          item.displaySubtitle ?? '',
-        ].join(' ').toLowerCase();
-        return searchable.contains(normalizedQuery);
-      },
-      orElse: () => null,
-    );
-    if (item != null) {
-      await playFromMediaId(item.id);
-      return;
-    }
-    await play();
-  }
-
-  @override
   Future<void> play() async {
-    if (currentQueue.isEmpty) {
-      final browseItem = _firstPlayableBrowseItem();
-      if (browseItem != null) {
-        await _loadBrowseMediaItem(browseItem);
-      }
-    }
     if (_justAudioEvent.processingState == ProcessingStateMessage.completed) {
       await skipToQueueItem(0);
     }
@@ -763,36 +671,6 @@ class _PlayerAudioHandler extends BaseAudioHandler
       _broadcastState();
       await (await _player).play(PlayRequest());
     }
-  }
-
-  Future<void> _loadBrowseMediaItem(MediaItem item) async {
-    final audioSource = _audioSourceMessageForBrowseItem(item);
-    if (audioSource == null) {
-      return;
-    }
-
-    _source = audioSource;
-    index = 0;
-    _updateShuffleIndices();
-    _updateQueue();
-    mediaItem.add(item);
-    _justAudioEvent = _justAudioEvent.copyWith(
-      processingState: ProcessingStateMessage.loading,
-      updateTime: DateTime.now(),
-      updatePosition: Duration.zero,
-      bufferedPosition: Duration.zero,
-      duration: item.duration,
-      currentIndex: 0,
-    );
-    _broadcastState();
-
-    await (await _player).load(
-      LoadRequest(
-        audioSourceMessage: audioSource,
-        initialPosition: Duration.zero,
-        initialIndex: 0,
-      ),
-    );
   }
 
   @override
@@ -957,138 +835,6 @@ class _PlayerAudioHandler extends BaseAudioHandler
       errorMessage: _justAudioEvent.errorMessage,
     ));
   }
-
-  @override
-  Future<List<MediaItem>> getChildren(String parentMediaId,
-      [Map<String, dynamic>? options]) async {
-    final children = _browseChildrenByParent[parentMediaId];
-    if (children != null) {
-      return children;
-    }
-
-    if (parentMediaId == AudioService.browsableRootId ||
-        parentMediaId == AudioService.recentRootId) {
-      return currentQueue;
-    }
-
-    return <MediaItem>[];
-  }
-
-  @override
-  ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
-    return _childrenSubscriptions.putIfAbsent(
-      parentMediaId,
-      () => BehaviorSubject<Map<String, dynamic>>.seeded(<String, dynamic>{}),
-    );
-  }
-
-  @override
-  Future<MediaItem?> getMediaItem(String mediaId) async {
-    for (final item in _allBrowseItems()) {
-      if (_mediaIdsMatch(item.id, mediaId)) {
-        return item;
-      }
-    }
-    return null;
-  }
-
-  @override
-  Future<List<MediaItem>> search(String query,
-      [Map<String, dynamic>? extras]) async {
-    final normalizedQuery = query.trim().toLowerCase();
-    return _allBrowseItems().where((item) {
-      if (!_isPlayable(item)) return false;
-      if (normalizedQuery.isEmpty) return true;
-      final searchable = <String>[
-        item.title,
-        item.album ?? '',
-        item.artist ?? '',
-        item.displayTitle ?? '',
-        item.displaySubtitle ?? '',
-      ].join(' ').toLowerCase();
-      return searchable.contains(normalizedQuery);
-    }).toList();
-  }
-
-  Iterable<MediaItem> _allBrowseItems() sync* {
-    final seen = <String>{};
-    for (final item in currentQueue) {
-      if (seen.add(item.id)) {
-        yield item;
-      }
-    }
-    for (final children in _browseChildrenByParent.values) {
-      for (final item in children) {
-        if (seen.add(item.id)) {
-          yield item;
-        }
-      }
-    }
-  }
-
-  MediaItem? _firstPlayableBrowseItem() {
-    for (final item in _allBrowseItems()) {
-      if (_isPlayable(item)) {
-        return item;
-      }
-    }
-    return null;
-  }
-
-  AudioSourceMessage? _audioSourceMessageForBrowseItem(MediaItem item) {
-    final uri = Uri.tryParse(item.id);
-    if (uri == null || !uri.hasScheme) {
-      return null;
-    }
-    if (uri.scheme != 'http' &&
-        uri.scheme != 'https' &&
-        uri.scheme != 'file' &&
-        uri.scheme != 'asset') {
-      return null;
-    }
-
-    final headers = item.isLive == true
-        ? const <String, String>{'Icy-MetaData': '1'}
-        : null;
-    final path = uri.path.toLowerCase();
-    if (path.endsWith('.m3u8')) {
-      return HlsAudioSourceMessage(
-        id: item.id,
-        uri: item.id,
-        headers: headers,
-        tag: item,
-      );
-    }
-    if (path.endsWith('.mpd')) {
-      return DashAudioSourceMessage(
-        id: item.id,
-        uri: item.id,
-        headers: headers,
-        tag: item,
-      );
-    }
-    return ProgressiveAudioSourceMessage(
-      id: item.id,
-      uri: item.id,
-      headers: headers,
-      tag: item,
-    );
-  }
-
-  int? _queueIndexForMediaId(String mediaId) {
-    for (var i = 0; i < currentQueue.length; i += 1) {
-      if (_mediaIdsMatch(currentQueue[i].id, mediaId)) {
-        return i;
-      }
-    }
-    return null;
-  }
-
-  bool _mediaIdsMatch(String a, String b) {
-    return a == b || a.startsWith('$b#') || b.startsWith('$a#');
-  }
-
-  static bool _isPlayable(MediaItem item) => item.playable != false;
 }
 
 class _Seeker {

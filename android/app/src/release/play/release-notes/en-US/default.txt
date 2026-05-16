@@ -1,5 +1,5 @@
-Radio FEM 1.0.24 - Driving media integration fix:
+Radio FEM 1.0.25 - Playback stability:
 
-- Adds Android Auto media app discovery.
-- Fixes playback when audio is started from Google Maps, Android Auto, Bluetooth, headphones, and system media controls.
-- Keeps live radio metadata available to Android media clients.
+- Removes Android Auto app discovery while the in-car experience is reviewed.
+- Increases live radio buffering to reduce short network-related silences.
+- Keeps regular app playback, notifications, Bluetooth, and headphone controls.

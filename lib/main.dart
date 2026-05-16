@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -16,25 +17,13 @@ Future<void> main() async {
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.forroemmilao.radiofem.playback',
     androidNotificationChannelName: 'Radio FEM Playback',
-    androidNotificationChannelDescription:
-        'Controles de reproducao da Radio FEM',
     androidNotificationOngoing: true,
-    androidStopForegroundOnPause: false,
-    androidBrowsableRootExtras: const <String, dynamic>{
-      AndroidContentStyle.supportedKey: true,
-      AndroidContentStyle.playableHintKey:
-          AndroidContentStyle.listItemHintValue,
-      AndroidContentStyle.browsableHintKey:
-          AndroidContentStyle.listItemHintValue,
-    },
   );
-  runApp(RadioFemApp(playbackService: JustAudioRadioPlaybackService()));
+  runApp(const RadioFemApp());
 }
 
 class RadioFemApp extends StatelessWidget {
-  const RadioFemApp({required this.playbackService, super.key});
-
-  final RadioPlaybackService playbackService;
+  const RadioFemApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +42,9 @@ class RadioFemApp extends StatelessWidget {
         reportsService: AzuraCastReportsService(
           apiKey: AppConfig.analyticsApiKey,
         ),
-        playbackService: playbackService,
+        playbackService: JustAudioRadioPlaybackService(),
+        autoplayOnInitialize:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
       )..initialize(),
       child: MaterialApp(
         title: 'Radio FEM',

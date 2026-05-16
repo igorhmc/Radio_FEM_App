@@ -5,8 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart' as bg;
 
-import '../config/app_config.dart';
-
 abstract class RadioPlaybackService {
   Stream<PlaybackStatus> get statusStream;
 
@@ -80,11 +78,29 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     _icyMetadataSubscription = _player.icyMetadataStream.listen(
       _handleIcyMetadataChanged,
     );
-    _configureExternalMediaBrowse();
     _emitStatus();
   }
 
-  final AudioPlayer _player = AudioPlayer(useProxyForRequestHeaders: false);
+  static const AudioLoadConfiguration _streamLoadConfiguration =
+      AudioLoadConfiguration(
+        androidLoadControl: AndroidLoadControl(
+          minBufferDuration: Duration(seconds: 60),
+          maxBufferDuration: Duration(minutes: 3),
+          bufferForPlaybackDuration: Duration(seconds: 4),
+          bufferForPlaybackAfterRebufferDuration: Duration(seconds: 12),
+          prioritizeTimeOverSizeThresholds: true,
+          backBufferDuration: Duration(seconds: 30),
+        ),
+        darwinLoadControl: DarwinLoadControl(
+          automaticallyWaitsToMinimizeStalling: true,
+          preferredForwardBufferDuration: Duration(seconds: 60),
+        ),
+      );
+
+  final AudioPlayer _player = AudioPlayer(
+    useProxyForRequestHeaders: false,
+    audioLoadConfiguration: _streamLoadConfiguration,
+  );
   final StreamController<PlaybackStatus> _statusController =
       StreamController<PlaybackStatus>.broadcast();
   final StreamController<PlaybackMediaItem?> _mediaItemController =
@@ -320,10 +336,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       artUri: artworkUri ?? await _artUriFuture,
       isLive: isLive,
       duration: isLive ? null : Duration.zero,
-      extras: const <String, dynamic>{
-        bg.AndroidContentStyle.playableHintKey:
-            bg.AndroidContentStyle.listItemHintValue,
-      },
     );
   }
 
@@ -340,39 +352,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         artworkUrl: item.artworkUrl,
         isLive: true,
       ),
-    );
-  }
-
-  void _configureExternalMediaBrowse() {
-    _publishExternalMediaBrowse();
-    unawaited(
-      _artUriFuture.then(
-        (artUri) => _publishExternalMediaBrowse(artUri: artUri),
-      ),
-    );
-  }
-
-  Future<void> _publishExternalMediaBrowse({Uri? artUri}) async {
-    await bg.JustAudioBackground.setBrowseTree(
-      rootChildren: <bg.MediaItem>[
-        bg.MediaItem(
-          id: AppConfig.streamUrl,
-          album: AppConfig.stationName,
-          title: 'Radio FEM ao vivo',
-          artist: AppConfig.stationName,
-          genre: 'Forro',
-          displayTitle: 'Radio FEM ao vivo',
-          displaySubtitle: 'Forro em Milao',
-          displayDescription: 'Transmissao ao vivo',
-          artUri: artUri,
-          isLive: true,
-          playable: true,
-          extras: const <String, dynamic>{
-            bg.AndroidContentStyle.playableHintKey:
-                bg.AndroidContentStyle.listItemHintValue,
-          },
-        ),
-      ],
     );
   }
 
