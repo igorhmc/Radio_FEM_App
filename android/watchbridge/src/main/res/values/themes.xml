@@ -1,10 +1,8 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <style name="Theme.RadioFemWatchBridge" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#FFD34D</item>
         <item name="colorPrimaryVariant">#D7A814</item>
         <item name="colorSecondary">#4AA35E</item>
-        <item name="android:statusBarColor" tools:targetApi="l">#120F0E</item>
-        <item name="android:navigationBarColor">#120F0E</item>
         <item name="android:windowBackground">#120F0E</item>
     </style>
 </resources>

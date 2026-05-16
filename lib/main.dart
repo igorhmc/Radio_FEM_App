@@ -13,7 +13,6 @@ import 'src/ui/home_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.forroemmilao.radiofem.playback',
     androidNotificationChannelName: 'Radio FEM Playback',
@@ -24,6 +23,13 @@ Future<void> main() async {
 
 class RadioFemApp extends StatelessWidget {
   const RadioFemApp({super.key});
+
+  static const SystemUiOverlayStyle _systemUiOverlayStyle =
+      SystemUiOverlayStyle(
+        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +72,10 @@ class RadioFemApp extends StatelessWidget {
             displayColor: scheme.onSurface,
           ),
         ),
-        home: const HomeShell(),
+        home: const AnnotatedRegion<SystemUiOverlayStyle>(
+          value: _systemUiOverlayStyle,
+          child: HomeShell(),
+        ),
       ),
     );
   }

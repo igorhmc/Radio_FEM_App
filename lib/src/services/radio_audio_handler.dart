@@ -38,6 +38,7 @@ abstract class RadioPlaybackService {
     required String artist,
     required String title,
     String? artworkUrl,
+    bool authoritative = true,
   });
 
   Future<void> seekRelative(Duration delta);
@@ -115,6 +116,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   PlaybackMediaItem? _currentItem;
   int _liveMetadataRevision = 0;
   bool _isDisposed = false;
+  bool _hasAuthoritativeLiveMetadata = false;
 
   @override
   Stream<PlaybackStatus> get statusStream => _statusController.stream;
@@ -152,6 +154,10 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _mode = PlaybackMode.live;
+    _hasAuthoritativeLiveMetadata = _hasUsefulLiveMetadata(
+      artist: artist,
+      title: title,
+    );
     _currentItem = PlaybackMediaItem(
       id: url,
       album: stationName,
@@ -181,6 +187,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _mode = PlaybackMode.podcast;
+    _hasAuthoritativeLiveMetadata = false;
     _currentItem = PlaybackMediaItem(
       id: url,
       album: podcastTitle,
@@ -215,8 +222,19 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     required String artist,
     required String title,
     String? artworkUrl,
+    bool authoritative = true,
   }) async {
     if (_mode != PlaybackMode.live || _currentItem == null) {
+      return;
+    }
+    if (!authoritative &&
+        _hasAuthoritativeLiveMetadata &&
+        !_sameTrack(
+          artist: artist,
+          title: title,
+          otherArtist: _currentItem!.artist,
+          otherTitle: _currentItem!.title,
+        )) {
       return;
     }
 
@@ -237,6 +255,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _currentItem = nextItem;
+    if (authoritative && _hasUsefulLiveMetadata(artist: artist, title: title)) {
+      _hasAuthoritativeLiveMetadata = true;
+    }
     _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
     await bg.JustAudioBackground.updateMediaItem(
@@ -374,8 +395,35 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         stationName: _currentItem!.album,
         artist: parsed.artist,
         title: parsed.title,
+        authoritative: false,
       ),
     );
+  }
+
+  bool _sameTrack({
+    required String artist,
+    required String title,
+    required String otherArtist,
+    required String otherTitle,
+  }) {
+    return _normalizeMetadataText(artist) ==
+            _normalizeMetadataText(otherArtist) &&
+        _normalizeMetadataText(title) == _normalizeMetadataText(otherTitle);
+  }
+
+  bool _hasUsefulLiveMetadata({required String artist, required String title}) {
+    final normalizedArtist = _normalizeMetadataText(artist);
+    final normalizedTitle = _normalizeMetadataText(title);
+    return normalizedArtist.isNotEmpty &&
+        normalizedTitle.isNotEmpty &&
+        normalizedArtist != 'loading artist...' &&
+        normalizedTitle != 'loading track...' &&
+        normalizedArtist != 'unknown artist' &&
+        normalizedTitle != 'live track';
+  }
+
+  String _normalizeMetadataText(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   }
 
   Uri? _resolveArtworkUri(String artworkUrl) {

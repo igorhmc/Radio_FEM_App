@@ -112,6 +112,7 @@ class _FakePlaybackService extends RadioPlaybackService {
     required String artist,
     required String title,
     String? artworkUrl,
+    bool authoritative = true,
   }) async {}
 
   @override

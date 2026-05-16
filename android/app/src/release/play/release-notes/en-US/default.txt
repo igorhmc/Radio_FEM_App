@@ -1,5 +1,7 @@
-Radio FEM 1.0.25 - Playback stability:
+Radio FEM 1.0.26 - Playback metadata stability:
 
 - Removes Android Auto app discovery while the in-car experience is reviewed.
 - Increases live radio buffering to reduce short network-related silences.
+- Prevents stale stream metadata from briefly restoring the previous song.
+- Updates Android edge-to-edge handling for Android 15 system bars.
 - Keeps regular app playback, notifications, Bluetooth, and headphone controls.

@@ -28,6 +28,8 @@ class RadioController extends ChangeNotifier {
       WatchControlBridgeServer();
   final bool autoplayOnInitialize;
 
+  static const _metadataRegressionWindow = Duration(minutes: 2);
+
   final Map<String, List<PodcastEpisode>> _episodesCache =
       <String, List<PodcastEpisode>>{};
 
@@ -41,6 +43,9 @@ class RadioController extends ChangeNotifier {
   DateTime? _loadedScheduleStart;
   DateTime? _loadedScheduleEnd;
   DateTime? _lastAudienceRefreshAt;
+  DateTime? _liveMetadataChangedAt;
+  _LiveMetadataSnapshot? _currentLiveMetadata;
+  _LiveMetadataSnapshot? _previousLiveMetadata;
 
   String stationName = AppConfig.stationName;
   String nowPlayingArtist = 'Loading artist...';
@@ -126,32 +131,14 @@ class RadioController extends ChangeNotifier {
         return;
       }
       if (isLiveStreamMode) {
-        var changed = false;
-        if (item.artist.trim().isNotEmpty) {
-          final nextArtist = item.artist.trim();
-          if (nextArtist != nowPlayingArtist) {
-            nowPlayingArtist = nextArtist;
-            changed = true;
-          }
+        final changed = _applyLiveMetadata(
+          artist: item.artist,
+          title: item.title,
+          artworkUrl: item.artworkUrl,
+        );
+        if (changed) {
+          notifyListeners();
         }
-        if (item.title.trim().isNotEmpty) {
-          final nextTitle = item.title.trim();
-          if (nextTitle != nowPlayingTitle) {
-            nowPlayingTitle = nextTitle;
-            changed = true;
-          }
-        }
-        if (item.artworkUrl.trim().isNotEmpty) {
-          final nextArtworkUrl = item.artworkUrl.trim();
-          if (nextArtworkUrl != currentArtworkUrl) {
-            currentArtworkUrl = nextArtworkUrl;
-            changed = true;
-          }
-        }
-        if (!changed) {
-          return;
-        }
-        notifyListeners();
       }
     });
 
@@ -311,15 +298,19 @@ class RadioController extends ChangeNotifier {
       apiErrorMessage = null;
 
       if (isLiveStreamMode) {
-        nowPlayingArtist = payload.artist;
-        nowPlayingTitle = payload.title;
-        currentArtworkUrl = payload.artworkUrl;
-        await _playbackService.updateLiveMetadata(
-          stationName: payload.stationName,
+        final metadataChanged = _applyLiveMetadata(
           artist: payload.artist,
           title: payload.title,
           artworkUrl: payload.artworkUrl,
         );
+        if (metadataChanged) {
+          await _playbackService.updateLiveMetadata(
+            stationName: payload.stationName,
+            artist: nowPlayingArtist,
+            title: nowPlayingTitle,
+            artworkUrl: currentArtworkUrl,
+          );
+        }
       }
 
       notifyListeners();
@@ -361,6 +352,71 @@ class RadioController extends ChangeNotifier {
       audienceErrorMessage = 'Could not load the audience analytics.';
       notifyListeners();
     }
+  }
+
+  bool _applyLiveMetadata({
+    required String artist,
+    required String title,
+    String? artworkUrl,
+  }) {
+    final next = _LiveMetadataSnapshot(
+      artist: artist,
+      title: title,
+      artworkUrl: artworkUrl ?? currentArtworkUrl,
+    );
+    if (!next.hasUsefulTrack) {
+      return false;
+    }
+
+    final current =
+        _currentLiveMetadata ??
+        _LiveMetadataSnapshot(
+          artist: nowPlayingArtist,
+          title: nowPlayingTitle,
+          artworkUrl: currentArtworkUrl,
+        );
+    final previous = _previousLiveMetadata;
+    final changedAt = _liveMetadataChangedAt;
+    final looksLikeRecentRegression =
+        previous != null &&
+        changedAt != null &&
+        next.sameTrack(previous) &&
+        !next.sameTrack(current) &&
+        DateTime.now().difference(changedAt) < _metadataRegressionWindow;
+    if (looksLikeRecentRegression) {
+      return false;
+    }
+
+    var changed = false;
+    final nextArtist = artist.trim();
+    if (nextArtist.isNotEmpty && nextArtist != nowPlayingArtist) {
+      nowPlayingArtist = nextArtist;
+      changed = true;
+    }
+    final nextTitle = title.trim();
+    if (nextTitle.isNotEmpty && nextTitle != nowPlayingTitle) {
+      nowPlayingTitle = nextTitle;
+      changed = true;
+    }
+    final nextArtworkUrl = artworkUrl?.trim() ?? '';
+    if (nextArtworkUrl.isNotEmpty && nextArtworkUrl != currentArtworkUrl) {
+      currentArtworkUrl = nextArtworkUrl;
+      changed = true;
+    }
+
+    final applied = _LiveMetadataSnapshot(
+      artist: nowPlayingArtist,
+      title: nowPlayingTitle,
+      artworkUrl: currentArtworkUrl,
+    );
+    if (!applied.sameTrack(current)) {
+      if (current.hasUsefulTrack) {
+        _previousLiveMetadata = current;
+      }
+      _liveMetadataChangedAt = DateTime.now();
+    }
+    _currentLiveMetadata = applied;
+    return changed;
   }
 
   WatchBridgeStatus _bridgeStatus() {
@@ -633,6 +689,38 @@ class _ScheduleFetchWindow {
 
   final DateTime start;
   final DateTime end;
+}
+
+class _LiveMetadataSnapshot {
+  const _LiveMetadataSnapshot({
+    required this.artist,
+    required this.title,
+    required this.artworkUrl,
+  });
+
+  final String artist;
+  final String title;
+  final String artworkUrl;
+
+  bool get hasUsefulTrack {
+    final normalizedArtist = _normalize(artist);
+    final normalizedTitle = _normalize(title);
+    return normalizedArtist.isNotEmpty &&
+        normalizedTitle.isNotEmpty &&
+        normalizedArtist != 'loading artist...' &&
+        normalizedTitle != 'loading track...' &&
+        normalizedArtist != 'unknown artist' &&
+        normalizedTitle != 'live track';
+  }
+
+  bool sameTrack(_LiveMetadataSnapshot other) {
+    return _normalize(artist) == _normalize(other.artist) &&
+        _normalize(title) == _normalize(other.title);
+  }
+
+  static String _normalize(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  }
 }
 
 _ScheduleFetchWindow _scheduleFetchWindow({

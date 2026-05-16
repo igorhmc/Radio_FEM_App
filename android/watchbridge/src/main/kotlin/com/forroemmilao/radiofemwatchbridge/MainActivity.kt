@@ -6,11 +6,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -25,8 +29,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        applySystemBarInsets(findViewById(R.id.bridge_root))
 
         statusView = findViewById(R.id.bridge_status)
         endpointView = findViewById(R.id.bridge_endpoint)
@@ -55,6 +61,19 @@ class MainActivity : AppCompatActivity() {
 
         maybeRequestNotificationPermission()
         WatchBridgeService.startService(this)
+    }
+
+    private fun applySystemBarInsets(root: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(
+                systemBars.left,
+                systemBars.top,
+                systemBars.right,
+                systemBars.bottom,
+            )
+            insets
+        }
     }
 
     override fun onStart() {
