@@ -9,11 +9,9 @@ import '../config/app_config.dart';
 import '../models/radio_models.dart';
 
 class RadioApiService {
-  RadioApiService({
-    http.Client? client,
-    Duration? requestTimeout,
-  }) : _client = client ?? http.Client(),
-       _requestTimeout = requestTimeout ?? AppConfig.requestTimeout;
+  RadioApiService({http.Client? client, Duration? requestTimeout})
+    : _client = client ?? http.Client(),
+      _requestTimeout = requestTimeout ?? AppConfig.requestTimeout;
 
   final http.Client _client;
   final Duration _requestTimeout;
@@ -111,7 +109,10 @@ class RadioApiService {
       );
       final imagePath = _firstMatch(
         article,
-        RegExp(r'<img class="partner-logo" src="([^"]+)"', caseSensitive: false),
+        RegExp(
+          r'<img class="partner-logo" src="([^"]+)"',
+          caseSensitive: false,
+        ),
       );
 
       if (title.trim().isEmpty || websiteUrl.trim().isEmpty) {
@@ -121,13 +122,15 @@ class RadioApiService {
       partners.add(
         PartnerItem(
           title: title.trim(),
-          subtitle: subtitle.trim().isEmpty ? 'Supporting partner' : subtitle.trim(),
+          subtitle: subtitle.trim().isEmpty
+              ? 'Supporting partner'
+              : subtitle.trim(),
           description: description.trim().isEmpty
               ? 'Independent project connected to the Radio FEM community.'
               : description.trim(),
-          websiteUrl: Uri.parse(AppConfig.partnersSourceUrl)
-              .resolve(websiteUrl.trim())
-              .toString(),
+          websiteUrl: Uri.parse(
+            AppConfig.partnersSourceUrl,
+          ).resolve(websiteUrl.trim()).toString(),
           imageUrl: imagePath.trim().isEmpty
               ? ''
               : uri.resolve(imagePath.trim()).toString(),
@@ -204,9 +207,7 @@ class RadioApiService {
     required String errorTarget,
   }) async {
     try {
-      return await _client
-          .get(uri, headers: headers)
-          .timeout(_requestTimeout);
+      return await _client.get(uri, headers: headers).timeout(_requestTimeout);
     } on TimeoutException {
       throw RadioApiException('Request timed out for $errorTarget');
     } on SocketException {
@@ -235,10 +236,9 @@ String _firstMatch(String input, RegExp pattern) {
 }
 
 String _stripHtml(String value) {
-  return value.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(
-    RegExp(r'\s+'),
-    ' ',
-  );
+  return value
+      .replaceAll(RegExp(r'<[^>]+>'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ');
 }
 
 String _decodeHtml(String value) {

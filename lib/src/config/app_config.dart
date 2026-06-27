@@ -1,5 +1,7 @@
 class AppConfig {
   static const requestTimeout = Duration(seconds: 8);
+  static const nowPlayingPollInterval = Duration(seconds: 5);
+  static const schedulePollInterval = Duration(minutes: 1);
   static const stationName = 'Radio FEM';
   static const baseUrl = 'https://radio.forroemmilao.com/';
   static const apiBaseUrl = 'https://radio.forroemmilao.com/api/';
@@ -22,7 +24,7 @@ class AppConfig {
     defaultValue: '',
   );
   static const aboutShort =
-      'Radio FEM is a radio station dedicated to forro in Milan, with curated music, special programming, and community-driven content.';
+      'Radio FEM connects tradition and discovery: forró pé de serra, special sets, new releases, and culture for people who dance and live the music.';
   static const aboutLong =
-      'In the app you can listen to the live stream, browse the weekly and monthly schedule, open the station podcasts, and contact the team.';
+      'Use the app to listen live, follow the 24/7 curation, explore themed programs and podcasts, and stay close to the Forró em Milão community.';
 }

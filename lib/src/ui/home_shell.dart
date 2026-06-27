@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,12 +12,12 @@ import '../models/radio_models.dart';
 
 enum _AppTab { player, schedule, podcasts, partners, contact }
 
-enum _ScheduleMode { weekly, monthly }
-
 typedef _ScheduleTabViewState = ({
   List<ScheduleItem> schedule,
   bool isScheduleLoading,
   String? scheduleErrorMessage,
+  String nowPlayingArtist,
+  String nowPlayingTitle,
 });
 
 typedef _PodcastsTabViewState = ({
@@ -124,12 +126,12 @@ class _HomeShellState extends State<HomeShell> {
               onPageChanged: (index) {
                 setState(() => _currentTab = _AppTab.values[index]);
               },
-              children: const <Widget>[
-                _PlayerTab(),
-                _ScheduleTab(),
-                _PodcastsTab(),
-                _PartnersTab(),
-                _ContactTab(),
+              children: <Widget>[
+                const _PlayerTab(),
+                _ScheduleTab(isActive: _currentTab == _AppTab.schedule),
+                const _PodcastsTab(),
+                const _PartnersTab(),
+                const _ContactTab(),
               ],
             ),
           ),
@@ -737,7 +739,7 @@ class _TopCountriesCard extends StatelessWidget {
             )
           else
             Text(
-              'The app needs station analytics access to show the 30-day audience breakdown.',
+              'The app needs station analytics access to show the audience breakdown.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white70,
                 height: 1.35,
@@ -750,17 +752,51 @@ class _TopCountriesCard extends StatelessWidget {
 }
 
 class _ScheduleTab extends StatefulWidget {
-  const _ScheduleTab();
+  const _ScheduleTab({required this.isActive});
+
+  final bool isActive;
 
   @override
   State<_ScheduleTab> createState() => _ScheduleTabState();
 }
 
 class _ScheduleTabState extends State<_ScheduleTab> {
-  _ScheduleMode _mode = _ScheduleMode.weekly;
-  int _weekOffset = 0;
-  int _monthOffset = 0;
-  String? _lastRangeKey;
+  final GlobalKey _nowMarkerKey = GlobalKey();
+  final ScrollController _timelineScrollController = ScrollController();
+  Timer? _clockTimer;
+  Timer? _autoScrollTimer;
+  DateTime _now = DateTime.now();
+  bool _needsTimelineAutoScroll = true;
+  bool _delayNextTimelineAutoScroll = false;
+  int? _lastProgramSetSignature;
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScheduleTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      _needsTimelineAutoScroll = true;
+      _delayNextTimelineAutoScroll = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    _autoScrollTimer?.cancel();
+    _timelineScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -770,249 +806,424 @@ class _ScheduleTabState extends State<_ScheduleTab> {
         schedule: value.schedule,
         isScheduleLoading: value.isScheduleLoading,
         scheduleErrorMessage: value.scheduleErrorMessage,
+        nowPlayingArtist: value.nowPlayingArtist,
+        nowPlayingTitle: value.nowPlayingTitle,
       ),
     );
-    final range = _currentRange();
-    _ensureRangeLoaded(controller, range);
-
-    final visibleItems =
+    final programs =
         viewState.schedule
-            .where(
-              (item) =>
-                  !item.endAt.isBefore(range.start) &&
-                  !item.startAt.isAfter(range.end),
-            )
+            .where((item) => item.rawTitlePrefix.startsWith('PROG'))
             .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
-
-    final currentCandidates = visibleItems.where((item) => item.isNow).toList()
-      ..sort((a, b) {
-        final priority = (b.isFeaturedProgram ? 1 : 0).compareTo(
-          a.isFeaturedProgram ? 1 : 0,
-        );
-        if (priority != 0) {
-          return priority;
-        }
-        return b.startAt.compareTo(a.startAt);
-      });
-    final currentItem = currentCandidates.firstOrNull;
-    final remainingItems = visibleItems
-        .where((item) => item.key != currentItem?.key)
+    final pastPrograms = programs
+        .where((item) => !item.endAt.isAfter(_now))
         .toList(growable: false);
+    final currentPrograms = programs
+        .where(
+          (item) => !item.startAt.isAfter(_now) && item.endAt.isAfter(_now),
+        )
+        .toList(growable: false);
+    final upcomingPrograms = programs
+        .where((item) => item.startAt.isAfter(_now))
+        .toList(growable: false);
+    final currentItem = currentPrograms.firstOrNull;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+    if (programs.isNotEmpty) {
+      _queueTimelineAutoScrollIfNeeded(
+        targetKey: _nowMarkerKey,
+        programSetSignature: _programSetSignature(programs),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _SectionHeader(
-          title: 'Schedule',
-          subtitle: 'Weekly and monthly programming',
-          trailing: IconButton(
-            onPressed: () => controller.refreshSchedule(
-              rangeStart: range.start,
-              rangeEnd: range.end,
-            ),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: <Widget>[
-            ChoiceChip(
-              label: const Text('Weekly'),
-              selected: _mode == _ScheduleMode.weekly,
-              onSelected: (_) {
-                setState(() {
-                  _mode = _ScheduleMode.weekly;
-                  _weekOffset = 0;
-                });
-              },
-            ),
-            ChoiceChip(
-              label: const Text('Monthly'),
-              selected: _mode == _ScheduleMode.monthly,
-              onSelected: (_) {
-                setState(() {
-                  _mode = _ScheduleMode.monthly;
-                  _monthOffset = 0;
-                });
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: <Widget>[
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  if (_mode == _ScheduleMode.weekly) {
-                    _weekOffset -= 1;
-                  } else {
-                    _monthOffset -= 1;
-                  }
-                });
-              },
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-            Expanded(
-              child: Text(
-                _rangeLabel(range),
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _SectionHeader(
+                title: 'Schedule',
+                subtitle: 'Live timeline for curated radio programs',
+                trailing: IconButton(
+                  onPressed: controller.refreshSchedule,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
               ),
-            ),
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  if (_mode == _ScheduleMode.weekly) {
-                    _weekOffset += 1;
-                  } else {
-                    _monthOffset += 1;
-                  }
-                });
-              },
-              icon: const Icon(Icons.arrow_forward_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (viewState.isScheduleLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-        if (viewState.scheduleErrorMessage != null) ...<Widget>[
-          Text(
-            viewState.scheduleErrorMessage!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (!viewState.isScheduleLoading &&
-            viewState.scheduleErrorMessage == null &&
-            visibleItems.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                _mode == _ScheduleMode.weekly
-                    ? 'No programs found for this week.'
-                    : 'No programs found for this month.',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SizedBox(height: 12),
+              _CurrentBroadcastCard(
+                program: currentItem,
+                artist: viewState.nowPlayingArtist,
+                title: viewState.nowPlayingTitle,
               ),
-            ),
+              const SizedBox(height: 10),
+            ],
           ),
-        if (currentItem != null) ...<Widget>[
-          Card(
-            color: const Color(0xFFD04D3D),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            key: const PageStorageKey<String>('scheduleTimelineScrollView'),
+            controller: _timelineScrollController,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (viewState.isScheduleLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                if (viewState.scheduleErrorMessage != null) ...<Widget>[
                   Text(
-                    'ON AIR NOW',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+                    viewState.scheduleErrorMessage!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    currentItem.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${_formatDate(currentItem.startAt)} • ${_formatTimeRange(currentItem)}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        for (final item in remainingItems) ...<Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    '${_formatDate(item.startAt)} • ${_formatTimeRange(item)}',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: const Color(0xFFFFD34D),
+                if (!viewState.isScheduleLoading &&
+                    viewState.scheduleErrorMessage == null &&
+                    programs.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'No curated radio programs were found in the loaded timeline.',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                if (programs.isNotEmpty) ...<Widget>[
+                  for (final item in pastPrograms)
+                    _ProgramTimelineEntry(
+                      item: item,
+                      status: _TimelineStatus.past,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(item.description),
+                  _NowTimelineMarker(key: _nowMarkerKey, now: _now),
+                  for (final item in currentPrograms)
+                    _ProgramTimelineEntry(
+                      item: item,
+                      status: _TimelineStatus.onAir,
+                    ),
+                  for (final item in upcomingPrograms)
+                    _ProgramTimelineEntry(
+                      item: item,
+                      status: _TimelineStatus.upcoming,
+                    ),
                 ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-        ],
+        ),
       ],
     );
   }
 
-  void _ensureRangeLoaded(RadioController controller, _Range range) {
-    final key =
-        '${range.start.millisecondsSinceEpoch}:${range.end.millisecondsSinceEpoch}';
-    if (_lastRangeKey == key) {
+  String _programIdentity(ScheduleItem item) {
+    return '${item.id}:${item.rawTitle}:${item.startAt.microsecondsSinceEpoch}:'
+        '${item.endAt.microsecondsSinceEpoch}';
+  }
+
+  int _programSetSignature(List<ScheduleItem> programs) {
+    return Object.hashAll(programs.map(_programIdentity));
+  }
+
+  void _queueTimelineAutoScrollIfNeeded({
+    required GlobalKey targetKey,
+    required int programSetSignature,
+  }) {
+    if (!widget.isActive) {
       return;
     }
-    _lastRangeKey = key;
+    if (!_needsTimelineAutoScroll &&
+        _lastProgramSetSignature == programSetSignature) {
+      return;
+    }
+
+    _needsTimelineAutoScroll = false;
+    _lastProgramSetSignature = programSetSignature;
+
+    final delay = _delayNextTimelineAutoScroll
+        ? const Duration(milliseconds: 380)
+        : const Duration(milliseconds: 80);
+    _delayNextTimelineAutoScroll = false;
+
+    _autoScrollTimer?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.ensureScheduleRange(range.start, range.end);
+      if (!mounted || !widget.isActive) {
+        return;
+      }
+      _autoScrollTimer?.cancel();
+      _autoScrollTimer = Timer(delay, () {
+        _scrollTimelineTo(targetKey, remainingAttempts: 3);
+      });
     });
   }
 
-  _Range _currentRange() {
-    if (_mode == _ScheduleMode.weekly) {
-      final now = DateTime.now();
-      final base = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).add(Duration(days: _weekOffset * 7));
-      final weekday = base.weekday;
-      final start = base.subtract(Duration(days: weekday - 1));
-      final end = start.add(const Duration(days: 6, hours: 23, minutes: 59));
-      return _Range(start: start, end: end);
+  void _scrollTimelineTo(
+    GlobalKey targetKey, {
+    required int remainingAttempts,
+  }) {
+    if (!mounted || !widget.isActive) {
+      return;
     }
 
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month + _monthOffset, 1);
-    final end = DateTime(now.year, now.month + _monthOffset + 1, 0, 23, 59, 59);
-    return _Range(start: start, end: end);
+    final targetContext = targetKey.currentContext;
+    if (!_timelineScrollController.hasClients || targetContext == null) {
+      if (remainingAttempts <= 0) {
+        _needsTimelineAutoScroll = true;
+        return;
+      }
+      _autoScrollTimer?.cancel();
+      _autoScrollTimer = Timer(const Duration(milliseconds: 120), () {
+        _scrollTimelineTo(targetKey, remainingAttempts: remainingAttempts - 1);
+      });
+      return;
+    }
+
+    Scrollable.ensureVisible(
+      targetContext,
+      alignment: 0.22,
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+    );
   }
+}
 
-  String _rangeLabel(_Range range) {
-    if (_mode == _ScheduleMode.weekly) {
-      return '${DateFormat('dd/MM').format(range.start)} - ${DateFormat('dd/MM').format(range.end)}';
-    }
-    return DateFormat('MMMM yyyy', 'en_US').format(range.start);
+enum _TimelineStatus { past, onAir, upcoming }
+
+class _CurrentBroadcastCard extends StatelessWidget {
+  const _CurrentBroadcastCard({
+    required this.program,
+    required this.artist,
+    required this.title,
+  });
+
+  final ScheduleItem? program;
+  final String artist;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeProgram = program;
+    return Card(
+      color: activeProgram == null
+          ? const Color(0xE0191716)
+          : const Color(0xFFD04D3D),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Icon(Icons.radio_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'ON THE RADIO NOW',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    activeProgram?.title ?? '24/7 forró pé de serra curation',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (activeProgram != null) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTimeRange(activeProgram),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                    ),
+                  ],
+                  if (artist.trim().isNotEmpty &&
+                      title.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 9),
+                    Text(
+                      '$artist — $title',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NowTimelineMarker extends StatelessWidget {
+  const _NowTimelineMarker({super.key, required this.now});
+
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: Stack(
+        children: <Widget>[
+          const Positioned(
+            left: 17,
+            top: 0,
+            bottom: 0,
+            child: ColoredBox(
+              color: Color(0xFFFFD34D),
+              child: SizedBox(width: 2),
+            ),
+          ),
+          Positioned(
+            left: 9,
+            top: 20,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD34D),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF120F0E), width: 4),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 46,
+            right: 0,
+            top: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0x33FFD34D),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0x66FFD34D)),
+              ),
+              child: Text(
+                'NOW • ${DateFormat('dd/MM/yyyy HH:mm').format(now)}',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: const Color(0xFFFFD34D),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgramTimelineEntry extends StatelessWidget {
+  const _ProgramTimelineEntry({required this.item, required this.status});
+
+  final ScheduleItem item;
+  final _TimelineStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPast = status == _TimelineStatus.past;
+    final isOnAir = status == _TimelineStatus.onAir;
+    final accent = isOnAir
+        ? const Color(0xFFD04D3D)
+        : isPast
+        ? const Color(0xFF77706C)
+        : const Color(0xFFFFD34D);
+
+    return Opacity(
+      opacity: isPast ? 0.62 : 1,
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            left: 17,
+            top: 0,
+            bottom: 0,
+            child: ColoredBox(color: accent, child: const SizedBox(width: 2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  width: 36,
+                  height: 36,
+                  margin: const EdgeInsets.only(top: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF171311),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: accent, width: 3),
+                  ),
+                  child: Icon(
+                    isOnAir
+                        ? Icons.graphic_eq_rounded
+                        : isPast
+                        ? Icons.check_rounded
+                        : Icons.schedule_rounded,
+                    size: 18,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Card(
+                    color: isOnAir
+                        ? const Color(0xFFD04D3D)
+                        : const Color(0xE0191716),
+                    child: Padding(
+                      padding: const EdgeInsets.all(15),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            '${_formatDate(item.startAt)} • ${_formatTimeRange(item)}',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: isOnAir ? Colors.white : accent,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.description,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1040,7 +1251,7 @@ class _PodcastsTab extends StatelessWidget {
       children: <Widget>[
         _SectionHeader(
           title: 'Podcasts',
-          subtitle: 'Recorded shows and station specials',
+          subtitle: 'Recorded shows, specials, and radio culture',
           trailing: IconButton(
             onPressed: controller.refreshPodcasts,
             icon: const Icon(Icons.refresh_rounded),
@@ -1098,7 +1309,7 @@ class _PodcastsTab extends StatelessWidget {
                               ? null
                               : () => _openUrl(podcast.feedUrl),
                           icon: const Icon(Icons.open_in_new_rounded),
-                          label: const Text('RSS feed'),
+                          label: const Text('Feed RSS'),
                         ),
                       ],
                     ),
@@ -1213,7 +1424,7 @@ class _PartnersTab extends StatelessWidget {
       children: <Widget>[
         _SectionHeader(
           title: 'Partners',
-          subtitle: 'Supporting projects synced with the radio website',
+          subtitle: 'Projects connected to the Forró em Milão community',
           trailing: IconButton(
             onPressed: controller.refreshPartners,
             icon: const Icon(Icons.refresh_rounded),
@@ -1289,8 +1500,8 @@ class _PartnersTab extends StatelessWidget {
           yield const SizedBox(height: 12);
         }),
         if (!viewState.isPartnersLoading &&
-          viewState.partnersErrorMessage == null &&
-          viewState.partners.isEmpty)
+            viewState.partnersErrorMessage == null &&
+            viewState.partners.isEmpty)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1338,13 +1549,13 @@ class _ContactTab extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openUrl(AppConfig.websiteUrl),
                   icon: const Icon(Icons.radio_rounded),
-                  label: const Text('Open radio website'),
+                  label: const Text('Open full radio page'),
                 ),
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   onPressed: () => _openUrl(AppConfig.forroEmMilaoWebsiteUrl),
                   icon: const Icon(Icons.language_rounded),
-                  label: const Text('Open FEM Website'),
+                  label: const Text('Open Forró em Milão'),
                 ),
               ],
             ),
@@ -1365,7 +1576,7 @@ class _ContactTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Scan this QR code to open the Android download page.',
+                  'Scan this QR code to open the Android app page on Google Play.',
                 ),
                 const SizedBox(height: 14),
                 Center(
@@ -1395,7 +1606,7 @@ class _ContactTab extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openUrl(AppConfig.androidDownloadUrl),
                   icon: const Icon(Icons.android),
-                  label: const Text('Open Android download page'),
+                  label: const Text('Open on Google Play'),
                 ),
               ],
             ),
@@ -1471,13 +1682,6 @@ class _SectionHeader extends StatelessWidget {
       ],
     );
   }
-}
-
-class _Range {
-  const _Range({required this.start, required this.end});
-
-  final DateTime start;
-  final DateTime end;
 }
 
 String _formatDate(DateTime value) => DateFormat('dd/MM/yyyy').format(value);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart' as bg;
@@ -56,6 +57,7 @@ abstract class RadioPlaybackService {
 
 class JustAudioRadioPlaybackService implements RadioPlaybackService {
   JustAudioRadioPlaybackService() : _artUriFuture = _ensureArtworkUri() {
+    unawaited(_configureAudioSession());
     _playerStateSubscription = _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed &&
           _mode == PlaybackMode.podcast) {
@@ -85,20 +87,21 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   static const AudioLoadConfiguration _streamLoadConfiguration =
       AudioLoadConfiguration(
         androidLoadControl: AndroidLoadControl(
-          minBufferDuration: Duration(seconds: 60),
-          maxBufferDuration: Duration(minutes: 3),
-          bufferForPlaybackDuration: Duration(seconds: 4),
-          bufferForPlaybackAfterRebufferDuration: Duration(seconds: 12),
+          minBufferDuration: Duration(seconds: 10),
+          maxBufferDuration: Duration(seconds: 30),
+          bufferForPlaybackDuration: Duration(seconds: 1),
+          bufferForPlaybackAfterRebufferDuration: Duration(seconds: 2),
           prioritizeTimeOverSizeThresholds: true,
-          backBufferDuration: Duration(seconds: 30),
+          backBufferDuration: Duration.zero,
         ),
         darwinLoadControl: DarwinLoadControl(
           automaticallyWaitsToMinimizeStalling: true,
-          preferredForwardBufferDuration: Duration(seconds: 60),
+          preferredForwardBufferDuration: Duration(seconds: 10),
         ),
       );
 
   final AudioPlayer _player = AudioPlayer(
+    handleInterruptions: false,
     useProxyForRequestHeaders: false,
     audioLoadConfiguration: _streamLoadConfiguration,
   );
@@ -112,11 +115,15 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<double>? _volumeSubscription;
   StreamSubscription<IcyMetadata?>? _icyMetadataSubscription;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSubscription;
+  StreamSubscription<void>? _becomingNoisySubscription;
   PlaybackMode _mode = PlaybackMode.live;
   PlaybackMediaItem? _currentItem;
   int _liveMetadataRevision = 0;
   bool _isDisposed = false;
-  bool _hasAuthoritativeLiveMetadata = false;
+  bool _resumeAfterInterruption = false;
+  double? _volumeBeforeDuck;
+  Future<void>? _liveReconnectFuture;
 
   @override
   Stream<PlaybackStatus> get statusStream => _statusController.stream;
@@ -131,13 +138,17 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
   Future<void> play() => _player.play();
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    _resumeAfterInterruption = false;
+    return _player.pause();
+  }
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> stop() async {
+    _resumeAfterInterruption = false;
     await _player.stop();
   }
 
@@ -154,10 +165,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _mode = PlaybackMode.live;
-    _hasAuthoritativeLiveMetadata = _hasUsefulLiveMetadata(
-      artist: artist,
-      title: title,
-    );
+    _resumeAfterInterruption = false;
     _currentItem = PlaybackMediaItem(
       id: url,
       album: stationName,
@@ -169,9 +177,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     );
     _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
-    await _player.stop();
-    await _player.setAudioSource(await _buildLiveAudioSource(_currentItem!));
-    await _player.play();
+    await _reconnectLiveStream();
     _emitStatus();
   }
 
@@ -187,7 +193,7 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _mode = PlaybackMode.podcast;
-    _hasAuthoritativeLiveMetadata = false;
+    _resumeAfterInterruption = false;
     _currentItem = PlaybackMediaItem(
       id: url,
       album: podcastTitle,
@@ -227,17 +233,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     if (_mode != PlaybackMode.live || _currentItem == null) {
       return;
     }
-    if (!authoritative &&
-        _hasAuthoritativeLiveMetadata &&
-        !_sameTrack(
-          artist: artist,
-          title: title,
-          otherArtist: _currentItem!.artist,
-          otherTitle: _currentItem!.title,
-        )) {
-      return;
-    }
-
     final nextItem = _currentItem!.copyWith(
       album: stationName,
       title: title,
@@ -255,9 +250,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     }
 
     _currentItem = nextItem;
-    if (authoritative && _hasUsefulLiveMetadata(artist: artist, title: title)) {
-      _hasAuthoritativeLiveMetadata = true;
-    }
     _liveMetadataRevision += 1;
     _mediaItemController.add(_currentItem);
     await bg.JustAudioBackground.updateMediaItem(
@@ -265,12 +257,12 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         id: _buildLiveMediaItemId(_currentItem!),
         album: _currentItem!.album,
         title: _currentItem!.title.isEmpty
-            ? 'Radio FEM ao vivo'
+            ? 'Radio FEM live'
             : _currentItem!.title,
         artist: _currentItem!.artist.isEmpty
             ? _currentItem!.album
             : _currentItem!.artist,
-        description: 'Transmissao ao vivo',
+        description: 'Live broadcast',
         artworkUrl: _currentItem!.artworkUrl,
         isLive: true,
       ),
@@ -314,6 +306,8 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
     unawaited(_durationSubscription?.cancel());
     unawaited(_volumeSubscription?.cancel());
     unawaited(_icyMetadataSubscription?.cancel());
+    unawaited(_interruptionSubscription?.cancel());
+    unawaited(_becomingNoisySubscription?.cancel());
     _statusController.close();
     _mediaItemController.close();
     unawaited(_player.dispose());
@@ -367,9 +361,9 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
       tag: await _buildSystemMediaItem(
         id: _buildLiveMediaItemId(item),
         album: item.album,
-        title: item.title.isEmpty ? 'Radio FEM ao vivo' : item.title,
+        title: item.title.isEmpty ? 'Radio FEM live' : item.title,
         artist: item.artist.isEmpty ? item.album : item.artist,
-        description: 'Transmissao ao vivo',
+        description: 'Live broadcast',
         artworkUrl: item.artworkUrl,
         isLive: true,
       ),
@@ -378,6 +372,92 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
 
   String _buildLiveMediaItemId(PlaybackMediaItem item) {
     return '${item.id}#live-meta=$_liveMetadataRevision';
+  }
+
+  Future<void> _configureAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+    if (_isDisposed) {
+      return;
+    }
+    _interruptionSubscription = session.interruptionEventStream.listen(
+      (event) => unawaited(_handleAudioInterruption(event)),
+    );
+    _becomingNoisySubscription = session.becomingNoisyEventStream.listen((_) {
+      _resumeAfterInterruption = false;
+      unawaited(_player.pause());
+    });
+  }
+
+  Future<void> _handleAudioInterruption(AudioInterruptionEvent event) async {
+    if (_isDisposed) {
+      return;
+    }
+
+    if (event.type == AudioInterruptionType.duck) {
+      if (event.begin) {
+        if (_volumeBeforeDuck == null && _player.playing) {
+          _volumeBeforeDuck = _player.volume;
+          await _player.setVolume((_player.volume * 0.25).clamp(0.0, 1.0));
+        }
+      } else {
+        final restoreVolume = _volumeBeforeDuck;
+        _volumeBeforeDuck = null;
+        if (restoreVolume != null) {
+          await _player.setVolume(restoreVolume);
+        }
+      }
+      return;
+    }
+
+    if (event.begin) {
+      final wasPlaying = _player.playing;
+      _resumeAfterInterruption =
+          event.type == AudioInterruptionType.pause && wasPlaying;
+      if (wasPlaying) {
+        await _player.pause();
+      }
+      return;
+    }
+
+    if (event.type != AudioInterruptionType.pause ||
+        !_resumeAfterInterruption) {
+      return;
+    }
+
+    _resumeAfterInterruption = false;
+    if (_mode == PlaybackMode.live) {
+      await _reconnectLiveStream();
+    } else {
+      await _player.play();
+    }
+  }
+
+  Future<void> _reconnectLiveStream() async {
+    final existingReconnect = _liveReconnectFuture;
+    if (existingReconnect != null) {
+      return existingReconnect;
+    }
+    final item = _currentItem;
+    if (_mode != PlaybackMode.live || item == null) {
+      return;
+    }
+
+    final reconnect = _performLiveReconnect(item);
+    _liveReconnectFuture = reconnect;
+    try {
+      await reconnect;
+    } finally {
+      if (identical(_liveReconnectFuture, reconnect)) {
+        _liveReconnectFuture = null;
+      }
+    }
+  }
+
+  Future<void> _performLiveReconnect(PlaybackMediaItem item) async {
+    await _player.stop();
+    await _player.setAudioSource(await _buildLiveAudioSource(item));
+    await _player.play();
   }
 
   void _handleIcyMetadataChanged(IcyMetadata? metadata) {
@@ -398,32 +478,6 @@ class JustAudioRadioPlaybackService implements RadioPlaybackService {
         authoritative: false,
       ),
     );
-  }
-
-  bool _sameTrack({
-    required String artist,
-    required String title,
-    required String otherArtist,
-    required String otherTitle,
-  }) {
-    return _normalizeMetadataText(artist) ==
-            _normalizeMetadataText(otherArtist) &&
-        _normalizeMetadataText(title) == _normalizeMetadataText(otherTitle);
-  }
-
-  bool _hasUsefulLiveMetadata({required String artist, required String title}) {
-    final normalizedArtist = _normalizeMetadataText(artist);
-    final normalizedTitle = _normalizeMetadataText(title);
-    return normalizedArtist.isNotEmpty &&
-        normalizedTitle.isNotEmpty &&
-        normalizedArtist != 'loading artist...' &&
-        normalizedTitle != 'loading track...' &&
-        normalizedArtist != 'unknown artist' &&
-        normalizedTitle != 'live track';
-  }
-
-  String _normalizeMetadataText(String value) {
-    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   }
 
   Uri? _resolveArtworkUri(String artworkUrl) {

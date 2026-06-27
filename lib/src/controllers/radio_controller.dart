@@ -39,7 +39,8 @@ class RadioController extends ChangeNotifier {
   Timer? _progressTimer;
 
   bool _initialized = false;
-  int _schedulePollCount = 0;
+  bool _isNowPlayingRefreshInFlight = false;
+  DateTime? _lastScheduleRefreshAt;
   DateTime? _loadedScheduleStart;
   DateTime? _loadedScheduleEnd;
   DateTime? _lastAudienceRefreshAt;
@@ -158,14 +159,16 @@ class RadioController extends ChangeNotifier {
       unawaited(startLivePlayback());
     }
 
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _pollTimer = Timer.periodic(AppConfig.nowPlayingPollInterval, (_) {
       unawaited(refreshNowPlaying());
-      _schedulePollCount += 1;
-      if (_schedulePollCount >= 4) {
-        _schedulePollCount = 0;
+      final now = DateTime.now();
+      final lastScheduleRefreshAt = _lastScheduleRefreshAt;
+      if (lastScheduleRefreshAt == null ||
+          now.difference(lastScheduleRefreshAt) >=
+              AppConfig.schedulePollInterval) {
+        _lastScheduleRefreshAt = now;
         unawaited(refreshSchedule());
       }
-      final now = DateTime.now();
       final lastAudienceRefreshAt = _lastAudienceRefreshAt;
       if (now.minute % 10 == 0 &&
           (lastAudienceRefreshAt == null ||
@@ -284,6 +287,10 @@ class RadioController extends ChangeNotifier {
   }
 
   Future<void> refreshNowPlaying() async {
+    if (_isNowPlayingRefreshInFlight) {
+      return;
+    }
+    _isNowPlayingRefreshInFlight = true;
     final showLoading = lastUpdated.isEmpty;
     isLoading = showLoading;
     apiErrorMessage = null;
@@ -318,6 +325,8 @@ class RadioController extends ChangeNotifier {
       isLoading = false;
       apiErrorMessage = 'Could not update live status.';
       notifyListeners();
+    } finally {
+      _isNowPlayingRefreshInFlight = false;
     }
   }
 
@@ -508,6 +517,7 @@ class RadioController extends ChangeNotifier {
     DateTime? rangeStart,
     DateTime? rangeEnd,
   }) async {
+    _lastScheduleRefreshAt = DateTime.now();
     isScheduleLoading = true;
     scheduleErrorMessage = null;
     notifyListeners();
@@ -709,6 +719,8 @@ class _LiveMetadataSnapshot {
         normalizedTitle.isNotEmpty &&
         normalizedArtist != 'loading artist...' &&
         normalizedTitle != 'loading track...' &&
+        normalizedArtist != 'carregando artista...' &&
+        normalizedTitle != 'carregando faixa...' &&
         normalizedArtist != 'unknown artist' &&
         normalizedTitle != 'live track';
   }

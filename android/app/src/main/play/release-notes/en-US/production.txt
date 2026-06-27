@@ -1,0 +1,4 @@
+Radio FEM 1.0.29:
+
+- The Schedule screen now keeps "On the radio now" fixed while browsing past and upcoming programs.
+- Refined app language to better match the new Forró em Milão community and radio identity.
