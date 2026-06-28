@@ -26,20 +26,26 @@ class RadioFemApp extends StatelessWidget {
 
   static const SystemUiOverlayStyle _systemUiOverlayStyle =
       SystemUiOverlayStyle(
-        statusBarBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFFFFF3E7),
+        systemNavigationBarIconBrightness: Brightness.dark,
       );
 
   @override
   Widget build(BuildContext context) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFFD7A814),
-      brightness: Brightness.dark,
-      primary: const Color(0xFFFFD34D),
-      secondary: const Color(0xFF4AA35E),
-      tertiary: const Color(0xFFC1553C),
-      surface: const Color(0xFF1E1A18),
+      seedColor: const Color(0xFFFF1010),
+      brightness: Brightness.light,
+      primary: const Color(0xFFFF1010),
+      onPrimary: Colors.white,
+      secondary: const Color(0xFFFFD83D),
+      onSecondary: const Color(0xFF14100E),
+      tertiary: const Color(0xFF006CFF),
+      onTertiary: Colors.white,
+      surface: const Color(0xFFFFF8EF),
+      onSurface: const Color(0xFF14100E),
+      error: const Color(0xFFC62828),
     );
 
     return ChangeNotifierProvider(
@@ -59,17 +65,74 @@ class RadioFemApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: scheme,
-          scaffoldBackgroundColor: const Color(0xFF120F0E),
+          scaffoldBackgroundColor: const Color(0xFFFFF3E7),
           cardTheme: CardThemeData(
-            color: const Color(0xE0191716),
+            color: const Color(0xFFFFF8EF),
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFF14100E)),
             ),
           ),
-          textTheme: Typography.whiteMountainView.apply(
+          textTheme: Typography.blackMountainView.apply(
             bodyColor: scheme.onSurface,
             displayColor: scheme.onSurface,
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFFFFF3E7),
+            indicatorColor: const Color(0xFFFFD83D),
+            labelTextStyle: WidgetStatePropertyAll(
+              Typography.blackMountainView.labelMedium?.copyWith(
+                color: const Color(0xFF14100E),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            iconTheme: const WidgetStatePropertyAll(
+              IconThemeData(color: Color(0xFF14100E)),
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF1010),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(48, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF14100E),
+              side: const BorderSide(color: Color(0xFF14100E)),
+              minimumSize: const Size(48, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          iconButtonTheme: IconButtonThemeData(
+            style: IconButton.styleFrom(
+              foregroundColor: const Color(0xFF14100E),
+              backgroundColor: const Color(0xFFFFD83D),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF14100E)),
+              ),
+            ),
+          ),
+          sliderTheme: const SliderThemeData(
+            activeTrackColor: Color(0xFFFF1010),
+            inactiveTrackColor: Color(0xFFFFD83D),
+            thumbColor: Color(0xFF14100E),
+            overlayColor: Color(0x26FF1010),
+          ),
+          progressIndicatorTheme: const ProgressIndicatorThemeData(
+            color: Color(0xFFFF1010),
           ),
         ),
         home: const AnnotatedRegion<SystemUiOverlayStyle>(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -37,6 +38,304 @@ typedef _PartnersTabViewState = ({
   List<PartnerItem> partners,
 });
 
+class _FemPalette {
+  const _FemPalette._();
+
+  static const Color paper = Color(0xFFFFF3E7);
+  static const Color card = Color(0xFFFFF8EF);
+  static const Color ink = Color(0xFF14100E);
+  static const Color muted = Color(0xFF6A5B50);
+  static const Color red = Color(0xFFFF1010);
+  static const Color yellow = Color(0xFFFFD83D);
+  static const Color blue = Color(0xFF006CFF);
+  static const Color sand = Color(0xFFFFE8B6);
+  static const Color line = Color(0xFF14100E);
+}
+
+class _ForroBackground extends StatelessWidget {
+  const _ForroBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: _FemPalette.paper),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          const Positioned.fill(
+            child: CustomPaint(painter: _BackgroundPatternPainter()),
+          ),
+          const Positioned(
+            top: -124,
+            right: -92,
+            child: _OrganicBlob(
+              color: _FemPalette.red,
+              size: 246,
+              rotation: 0.2,
+            ),
+          ),
+          const Positioned(
+            top: 142,
+            left: -48,
+            child: _Sunburst(color: _FemPalette.yellow, size: 108),
+          ),
+          const Positioned(
+            bottom: 84,
+            right: -110,
+            child: _OrganicBlob(
+              color: _FemPalette.blue,
+              size: 232,
+              rotation: -0.28,
+            ),
+          ),
+          const Positioned(
+            bottom: 286,
+            left: -42,
+            child: _Sunburst(color: _FemPalette.red, size: 78),
+          ),
+          Positioned.fill(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrganicBlob extends StatelessWidget {
+  const _OrganicBlob({
+    required this.color,
+    required this.size,
+    this.rotation = 0,
+  });
+
+  final Color color;
+  final double size;
+  final double rotation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation,
+      child: CustomPaint(size: Size.square(size), painter: _BlobPainter(color)),
+    );
+  }
+}
+
+class _Sunburst extends StatelessWidget {
+  const _Sunburst({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _SunburstPainter(color),
+    );
+  }
+}
+
+class _RecordMotif extends StatelessWidget {
+  const _RecordMotif({required this.size, required this.artworkUrl});
+
+  final double size;
+  final String artworkUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final centerSize = size * 0.34;
+    return SizedBox.square(
+      dimension: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          const Positioned.fill(child: CustomPaint(painter: _VinylPainter())),
+          if (artworkUrl.isEmpty)
+            Container(
+              width: centerSize,
+              height: centerSize,
+              decoration: BoxDecoration(
+                color: _FemPalette.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: _FemPalette.ink, width: 2),
+              ),
+            )
+          else
+            ClipOval(
+              child: SizedBox.square(
+                dimension: centerSize,
+                child: Image.network(
+                  artworkUrl,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, error, stackTrace) => Container(
+                    color: _FemPalette.red,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.music_note_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackgroundPatternPainter extends CustomPainter {
+  const _BackgroundPatternPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dotPaint = Paint()..color = const Color(0x40D7A814);
+    for (var i = 0; i < 42; i++) {
+      final t = i / 41;
+      final x = size.width * t;
+      final y = 112 + math.sin(t * math.pi * 3.2) * 14;
+      canvas.drawCircle(Offset(x, y), 1.4, dotPaint);
+    }
+
+    final bluePaint = Paint()..color = const Color(0x1F006CFF);
+    for (var i = 0; i < 36; i++) {
+      final t = i / 35;
+      final x = size.width * t;
+      final y = size.height - 148 + math.cos(t * math.pi * 2.8) * 16;
+      canvas.drawCircle(Offset(x, y), 1.2, bluePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BackgroundPatternPainter oldDelegate) => false;
+}
+
+class _BlobPainter extends CustomPainter {
+  const _BlobPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width * 0.52, 0)
+      ..cubicTo(
+        size.width * 0.86,
+        size.height * 0.03,
+        size.width,
+        size.height * 0.26,
+        size.width * 0.88,
+        size.height * 0.48,
+      )
+      ..cubicTo(
+        size.width,
+        size.height * 0.76,
+        size.width * 0.74,
+        size.height,
+        size.width * 0.45,
+        size.height * 0.91,
+      )
+      ..cubicTo(
+        size.width * 0.18,
+        size.height,
+        0,
+        size.height * 0.76,
+        size.width * 0.08,
+        size.height * 0.5,
+      )
+      ..cubicTo(
+        -size.width * 0.03,
+        size.height * 0.22,
+        size.width * 0.21,
+        -size.height * 0.02,
+        size.width * 0.52,
+        0,
+      )
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BlobPainter oldDelegate) {
+    return color != oldDelegate.color;
+  }
+}
+
+class _SunburstPainter extends CustomPainter {
+  const _SunburstPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final outer = size.shortestSide / 2;
+    final inner = outer * 0.55;
+    final path = Path();
+
+    for (var i = 0; i < 36; i++) {
+      final radius = i.isEven ? outer : inner;
+      final angle = -math.pi / 2 + i * math.pi / 18;
+      final point = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SunburstPainter oldDelegate) {
+    return color != oldDelegate.color;
+  }
+}
+
+class _VinylPainter extends CustomPainter {
+  const _VinylPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2;
+    canvas.drawCircle(
+      center.translate(radius * 0.09, radius * 0.13),
+      radius * 0.9,
+      Paint()..color = const Color(0x99FFD83D),
+    );
+    canvas.drawCircle(center, radius * 0.88, Paint()..color = _FemPalette.ink);
+    canvas.drawCircle(
+      center,
+      radius * 0.66,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF3B332E),
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.47,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = const Color(0xFF3B332E),
+    );
+    canvas.drawCircle(center, radius * 0.08, Paint()..color = _FemPalette.ink);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VinylPainter oldDelegate) => false;
+}
+
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -62,31 +361,17 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/radio_bg.png'),
-          fit: BoxFit.cover,
-        ),
-      ),
+    return _ForroBackground(
       child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xC814110F),
-              Color(0xDF120F0E),
-              Color(0xF5100D0C),
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Color(0x08FFD83D)),
         child: Scaffold(
           backgroundColor: Colors.transparent,
           bottomNavigationBar: SafeArea(
             top: false,
             child: NavigationBar(
-              backgroundColor: const Color(0xD3211B18),
+              backgroundColor: _FemPalette.paper,
+              indicatorColor: _FemPalette.yellow,
+              shadowColor: Colors.transparent,
               selectedIndex: _currentTab.index,
               onDestinationSelected: (index) {
                 setState(() => _currentTab = _AppTab.values[index]);
@@ -178,128 +463,24 @@ class _PlayerTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Container(
+                  _RadioHeroPanel(
                     height: heroHeight,
-                    padding: EdgeInsets.all(isWide ? 28 : 22),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: const Color(0x33FFD34D)),
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/radio_bg.png'),
-                        fit: BoxFit.cover,
-                      ),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x55000000),
-                          blurRadius: 28,
-                          offset: Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: <Color>[
-                            Color(0x8A140F0C),
-                            Color(0xD1120F0E),
-                            Color(0xF1110E0D),
-                          ],
-                        ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(isWide ? 28 : 22),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Expanded(
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: <Widget>[
-                                      _InfoPill(
-                                        label: controller.playbackSourceLabel,
-                                        value: controller.isPlaying
-                                            ? 'Playing'
-                                            : 'Paused',
-                                      ),
-                                      _InfoPill(
-                                        label: controller.audienceWindowLabel,
-                                        value: controller.hasAudienceAnalytics
-                                            ? '${controller.listenersLast30Days}'
-                                            : 'Unavailable',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (currentArtworkUrl.isNotEmpty) ...<Widget>[
-                                  const SizedBox(width: 12),
-                                  _NowPlayingArtwork(
-                                    artworkUrl: currentArtworkUrl,
-                                    size: isWide ? 112 : 86,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const Spacer(),
-                            Text(
-                              controller.stationName,
-                              style: textTheme.titleLarge?.copyWith(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              currentTitle,
-                              maxLines: isWide || currentArtworkUrl.isNotEmpty
-                                  ? 3
-                                  : 4,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  (isWide
-                                          ? textTheme.displaySmall
-                                          : textTheme.headlineMedium)
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w900,
-                                        height: 1.02,
-                                      ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              currentSubtitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: textTheme.titleMedium?.copyWith(
-                                color: const Color(0xFFFFD34D),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            if (!controller.isLiveStreamMode &&
-                                controller
-                                    .currentPodcastEpisodeDescription
-                                    .isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 12),
-                              Text(
-                                controller.currentPodcastEpisodeDescription,
-                                maxLines: isWide ? 3 : 4,
-                                overflow: TextOverflow.ellipsis,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white70,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
+                    isWide: isWide,
+                    playbackSourceLabel: controller.playbackSourceLabel,
+                    isPlaying: controller.isPlaying,
+                    audienceWindowLabel: controller.audienceWindowLabel,
+                    listenersLabel: controller.hasAudienceAnalytics
+                        ? '${controller.listenersLast30Days}'
+                        : 'Unavailable',
+                    stationName: controller.stationName,
+                    title: currentTitle,
+                    subtitle: currentSubtitle,
+                    artworkUrl: currentArtworkUrl,
+                    podcastDescription:
+                        controller.currentPodcastEpisodeDescription,
+                    showPodcastDescription:
+                        !controller.isLiveStreamMode &&
+                        controller.currentPodcastEpisodeDescription.isNotEmpty,
                   ),
                   const SizedBox(height: 18),
                   Card(
@@ -484,7 +665,7 @@ class _PlayerTab extends StatelessWidget {
                               controller.audienceErrorMessage!,
                               textAlign: TextAlign.center,
                               style: textTheme.bodySmall?.copyWith(
-                                color: Colors.white70,
+                                color: _FemPalette.muted,
                               ),
                             ),
                           ],
@@ -502,33 +683,210 @@ class _PlayerTab extends StatelessWidget {
   }
 }
 
-class _NowPlayingArtwork extends StatelessWidget {
-  const _NowPlayingArtwork({required this.artworkUrl, required this.size});
+class _RadioHeroPanel extends StatelessWidget {
+  const _RadioHeroPanel({
+    required this.height,
+    required this.isWide,
+    required this.playbackSourceLabel,
+    required this.isPlaying,
+    required this.audienceWindowLabel,
+    required this.listenersLabel,
+    required this.stationName,
+    required this.title,
+    required this.subtitle,
+    required this.artworkUrl,
+    required this.podcastDescription,
+    required this.showPodcastDescription,
+  });
 
+  final double height;
+  final bool isWide;
+  final String playbackSourceLabel;
+  final bool isPlaying;
+  final String audienceWindowLabel;
+  final String listenersLabel;
+  final String stationName;
+  final String title;
+  final String subtitle;
   final String artworkUrl;
-  final double size;
+  final String podcastDescription;
+  final bool showPodcastDescription;
 
   @override
   Widget build(BuildContext context) {
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final targetSize = (size * pixelRatio).round();
+    final textTheme = Theme.of(context).textTheme;
+    final recordSize = isWide ? 176.0 : 128.0;
+    final textInset = isWide ? recordSize + 28 : 74.0;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: SizedBox.square(
-        dimension: size,
-        child: Image.network(
-          artworkUrl,
-          cacheWidth: targetSize,
-          cacheHeight: targetSize,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          filterQuality: FilterQuality.medium,
-          errorBuilder: (_, error, stackTrace) => Container(
-            color: const Color(0xAA1F1A17),
-            alignment: Alignment.center,
-            child: const Icon(Icons.album_rounded),
+    return Container(
+      height: height,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: _FemPalette.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _FemPalette.line, width: 1.4),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: _FemPalette.yellow,
+            blurRadius: 0,
+            offset: Offset(8, 8),
           ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          const Positioned(
+            top: -82,
+            left: -74,
+            child: _OrganicBlob(
+              color: _FemPalette.red,
+              size: 180,
+              rotation: -0.2,
+            ),
+          ),
+          const Positioned(
+            top: 26,
+            right: 18,
+            child: _Sunburst(color: _FemPalette.yellow, size: 66),
+          ),
+          Positioned(
+            right: isWide ? 24 : -30,
+            bottom: isWide ? 22 : 16,
+            child: _RecordMotif(size: recordSize, artworkUrl: artworkUrl),
+          ),
+          Padding(
+            padding: EdgeInsets.all(isWide ? 26 : 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    _LiveBadge(isPlaying: isPlaying),
+                    _InfoPill(
+                      label: playbackSourceLabel,
+                      value: isPlaying ? 'Playing' : 'Paused',
+                    ),
+                    _InfoPill(
+                      label: audienceWindowLabel,
+                      value: listenersLabel,
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.only(right: textInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'RADIO FORRÓ\nEM MILÃO',
+                        style:
+                            (isWide
+                                    ? textTheme.headlineMedium
+                                    : textTheme.titleLarge)
+                                ?.copyWith(
+                                  color: _FemPalette.ink,
+                                  fontWeight: FontWeight.w900,
+                                  height: 0.9,
+                                  letterSpacing: 0,
+                                ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        stationName.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: _FemPalette.red,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        maxLines: isWide ? 3 : 4,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            (isWide
+                                    ? textTheme.displaySmall
+                                    : textTheme.headlineSmall)
+                                ?.copyWith(
+                                  color: _FemPalette.ink,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.02,
+                                  letterSpacing: 0,
+                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: _FemPalette.blue,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (showPodcastDescription) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Text(
+                          podcastDescription,
+                          maxLines: isWide ? 3 : 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: _FemPalette.muted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge({required this.isPlaying});
+
+  final bool isPlaying;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isPlaying ? _FemPalette.red : _FemPalette.sand,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _FemPalette.line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              isPlaying ? Icons.circle : Icons.pause_circle_filled_rounded,
+              size: 10,
+              color: isPlaying ? Colors.white : _FemPalette.ink,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              isPlaying ? 'AO VIVO 24/7' : 'PAUSADO',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: isPlaying ? Colors.white : _FemPalette.ink,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -542,19 +900,17 @@ class _CurrentProgramBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0x332A211B),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x45FFD34D)),
+        color: _FemPalette.sand,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _FemPalette.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(Icons.radio_rounded, color: colorScheme.primary),
+          const Icon(Icons.radio_rounded, color: _FemPalette.red),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -563,8 +919,8 @@ class _CurrentProgramBanner extends StatelessWidget {
                 Text(
                   'Program on air',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w700,
+                    color: _FemPalette.muted,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -580,7 +936,8 @@ class _CurrentProgramBanner extends StatelessWidget {
                 Text(
                   _formatTimeRange(program),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFFFFD34D),
+                    color: _FemPalette.blue,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -602,9 +959,9 @@ class _InfoPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0x401F1A17),
+        color: _FemPalette.card,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x40FFD34D)),
+        border: Border.all(color: _FemPalette.line),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -612,15 +969,18 @@ class _InfoPill extends StatelessWidget {
           text: TextSpan(
             style: Theme.of(
               context,
-            ).textTheme.labelLarge?.copyWith(color: Colors.white),
+            ).textTheme.labelLarge?.copyWith(color: _FemPalette.ink),
             children: <InlineSpan>[
               TextSpan(
                 text: '$label: ',
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: _FemPalette.muted),
               ),
               TextSpan(
                 text: value,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  color: _FemPalette.ink,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -642,9 +1002,9 @@ class _StatTile extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 150),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0x261F1A17),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x30FFD34D)),
+        color: _FemPalette.yellow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _FemPalette.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,7 +1014,7 @@ class _StatTile extends StatelessWidget {
             label,
             style: Theme.of(
               context,
-            ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+            ).textTheme.labelMedium?.copyWith(color: _FemPalette.ink),
           ),
           const SizedBox(height: 4),
           Text(
@@ -679,9 +1039,9 @@ class _TopCountriesCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0x261F1A17),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x30FFD34D)),
+        color: _FemPalette.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _FemPalette.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,14 +1064,15 @@ class _TopCountriesCard extends StatelessWidget {
                       width: 42,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0x40FFD34D),
-                        borderRadius: BorderRadius.circular(12),
+                        color: _FemPalette.blue,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _FemPalette.line),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         item.countryCode,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.black,
+                          color: Colors.white,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -729,7 +1090,7 @@ class _TopCountriesCard extends StatelessWidget {
                     Text(
                       '${item.listeners}',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: const Color(0xFFFFD34D),
+                        color: _FemPalette.red,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -741,7 +1102,7 @@ class _TopCountriesCard extends StatelessWidget {
             Text(
               'The app needs station analytics access to show the audience breakdown.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white70,
+                color: _FemPalette.muted,
                 height: 1.35,
               ),
             ),
@@ -1008,16 +1369,17 @@ class _CurrentBroadcastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeProgram = program;
+    final isActive = activeProgram != null;
+    final foreground = isActive ? Colors.white : _FemPalette.ink;
+    final secondary = isActive ? const Color(0xE6FFFFFF) : _FemPalette.ink;
     return Card(
-      color: activeProgram == null
-          ? const Color(0xE0191716)
-          : const Color(0xFFD04D3D),
+      color: isActive ? _FemPalette.red : _FemPalette.yellow,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Icon(Icons.radio_rounded, color: Colors.white),
+            Icon(Icons.radio_rounded, color: foreground),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1026,7 +1388,7 @@ class _CurrentBroadcastCard extends StatelessWidget {
                   Text(
                     'ON THE RADIO NOW',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white70,
+                      color: secondary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1034,7 +1396,7 @@ class _CurrentBroadcastCard extends StatelessWidget {
                   Text(
                     activeProgram?.title ?? '24/7 forró pé de serra curation',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
+                      color: foreground,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -1044,7 +1406,7 @@ class _CurrentBroadcastCard extends StatelessWidget {
                       _formatTimeRange(activeProgram),
                       style: Theme.of(
                         context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                      ).textTheme.bodyMedium?.copyWith(color: foreground),
                     ),
                   ],
                   if (artist.trim().isNotEmpty &&
@@ -1055,7 +1417,7 @@ class _CurrentBroadcastCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
+                        color: foreground,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1086,7 +1448,7 @@ class _NowTimelineMarker extends StatelessWidget {
             top: 0,
             bottom: 0,
             child: ColoredBox(
-              color: Color(0xFFFFD34D),
+              color: _FemPalette.red,
               child: SizedBox(width: 2),
             ),
           ),
@@ -1097,9 +1459,9 @@ class _NowTimelineMarker extends StatelessWidget {
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFD34D),
+                color: _FemPalette.red,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF120F0E), width: 4),
+                border: Border.all(color: _FemPalette.paper, width: 4),
               ),
             ),
           ),
@@ -1110,14 +1472,14 @@ class _NowTimelineMarker extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                color: const Color(0x33FFD34D),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x66FFD34D)),
+                color: _FemPalette.yellow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _FemPalette.line),
               ),
               child: Text(
                 'NOW • ${DateFormat('dd/MM/yyyy HH:mm').format(now)}',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFFFFD34D),
+                  color: _FemPalette.ink,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1140,10 +1502,10 @@ class _ProgramTimelineEntry extends StatelessWidget {
     final isPast = status == _TimelineStatus.past;
     final isOnAir = status == _TimelineStatus.onAir;
     final accent = isOnAir
-        ? const Color(0xFFD04D3D)
+        ? _FemPalette.red
         : isPast
-        ? const Color(0xFF77706C)
-        : const Color(0xFFFFD34D);
+        ? _FemPalette.muted
+        : _FemPalette.blue;
 
     return Opacity(
       opacity: isPast ? 0.62 : 1,
@@ -1165,7 +1527,7 @@ class _ProgramTimelineEntry extends StatelessWidget {
                   height: 36,
                   margin: const EdgeInsets.only(top: 14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF171311),
+                    color: _FemPalette.card,
                     shape: BoxShape.circle,
                     border: Border.all(color: accent, width: 3),
                   ),
@@ -1182,9 +1544,7 @@ class _ProgramTimelineEntry extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Card(
-                    color: isOnAir
-                        ? const Color(0xFFD04D3D)
-                        : const Color(0xE0191716),
+                    color: isOnAir ? _FemPalette.red : _FemPalette.card,
                     child: Padding(
                       padding: const EdgeInsets.all(15),
                       child: Column(
@@ -1203,7 +1563,9 @@ class _ProgramTimelineEntry extends StatelessWidget {
                             item.title,
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: isOnAir
+                                      ? Colors.white
+                                      : _FemPalette.ink,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -1211,7 +1573,11 @@ class _ProgramTimelineEntry extends StatelessWidget {
                           Text(
                             item.description,
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.white70),
+                                ?.copyWith(
+                                  color: isOnAir
+                                      ? const Color(0xE6FFFFFF)
+                                      : _FemPalette.muted,
+                                ),
                           ),
                         ],
                       ),
@@ -1290,7 +1656,8 @@ class _PodcastsTab extends StatelessWidget {
                     Text(
                       '${podcast.author} • ${podcast.episodesCount} episodes • ${podcast.language}',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFFFFD34D),
+                        color: _FemPalette.blue,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1368,7 +1735,8 @@ class _PodcastsTab extends StatelessWidget {
                               'dd/MM/yyyy HH:mm',
                             ).format(episode.publishAt!),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFFFFD34D),
+                        color: _FemPalette.blue,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1454,14 +1822,14 @@ class _PartnersTab extends StatelessWidget {
                 children: <Widget>[
                   if (partner.imageUrl.isNotEmpty) ...<Widget>[
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(8),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Image.network(
                           partner.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (_, error, stackTrace) => Container(
-                            color: const Color(0x261F1A17),
+                            color: _FemPalette.sand,
                             alignment: Alignment.center,
                             child: const Icon(
                               Icons.image_not_supported_outlined,
@@ -1482,7 +1850,8 @@ class _PartnersTab extends StatelessWidget {
                   Text(
                     partner.subtitle,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFFFFD34D),
+                      color: _FemPalette.blue,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1584,7 +1953,8 @@ class _ContactTab extends StatelessWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _FemPalette.line),
                     ),
                     child: QrImageView(
                       data: AppConfig.androidDownloadUrl,
@@ -1593,11 +1963,11 @@ class _ContactTab extends StatelessWidget {
                       backgroundColor: Colors.white,
                       eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
-                        color: Color(0xFF120F0E),
+                        color: _FemPalette.ink,
                       ),
                       dataModuleStyle: const QrDataModuleStyle(
                         dataModuleShape: QrDataModuleShape.square,
-                        color: Color(0xFF120F0E),
+                        color: _FemPalette.ink,
                       ),
                     ),
                   ),
@@ -1629,7 +1999,8 @@ class _ContactTab extends StatelessWidget {
                 Text(
                   AppConfig.contactEmail,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFFFD34D),
+                    color: _FemPalette.red,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1663,18 +2034,30 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        const Padding(
+          padding: EdgeInsets.only(top: 4, right: 10),
+          child: _Sunburst(color: _FemPalette.red, size: 24),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                title,
+                title.toUpperCase(),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  color: _FemPalette.ink,
+                  fontWeight: FontWeight.w900,
+                  height: 0.95,
+                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 2),
-              Text(subtitle),
+              Text(
+                subtitle,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: _FemPalette.muted),
+              ),
             ],
           ),
         ),

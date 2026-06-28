@@ -1,4 +1,5 @@
-Radio FEM 1.0.29:
+Radio FEM 1.0.30:
 
-- The Schedule screen now keeps "On the radio now" fixed while browsing past and upcoming programs.
-- Refined app language to better match the new Forró em Milão community and radio identity.
+- Refreshed the app visual identity with Forró em Milão colors, symbols, and poster-inspired details.
+- Updated the live player, schedule, podcasts, partners, and contact screens with the new design.
+- Kept playback, schedule, podcasts, and contact behavior unchanged.
