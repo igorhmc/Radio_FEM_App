@@ -3,36 +3,31 @@
 Package: `com.forroemmilao.radiofem`
 
 Current release:
-- Track: `internal`
-- Status: `draft`
-- Version: `1.0.6+10009`
+- Track: `production`
+- Status: `completed`
+- Version: `1.0.30+10035`
+- Promoted from `beta` to `production` on 2026-06-29 with Gradle Play Publisher.
 
 What was completed from the repository:
 - Android App Bundle signed and uploaded to Play Console.
-- English-only (`en-US`) store listing prepared with icon, feature graphic, screenshots, title, short description, and full description.
+- Version `1.0.30+10035` promoted to production.
+- English-only (`en-US`) store listing prepared with icon, feature graphic, updated screenshots, title, short description, and full description.
 - Contact email and website prepared in `android/app/src/main/play/`.
 - Privacy policy page prepared in `docs/privacy-policy/index.html`.
+- Play Console edits were committed successfully by the publishing service account.
 
-What still needs Play Console UI access:
+Manual Play Console review items:
 
-1. Fix service account permissions
-- Open `Play Console > Users and permissions`.
-- Grant the publishing service account app-level access for:
-  - Store presence
-  - App content
-  - Release to testing tracks
-- The current service account can upload bundles, but it cannot commit store listing edits.
-
-2. Publish the privacy policy at a public URL
+1. Privacy policy
 - Public URL confirmed:
   - `https://radio.forroemmilao.com/privacy-policy.html`
 - Fallback copy in repo:
   - `docs/privacy-policy/index.html`
 
-3. Complete Play Console mandatory forms
+2. Play Console mandatory forms
 - `Dashboard > Set up your app`
 - `Policy and programs > App content`
-- Complete and submit:
+- Keep complete and submitted:
   - Privacy policy URL
   - App access
   - Ads declaration
@@ -41,20 +36,15 @@ What still needs Play Console UI access:
   - Data safety
   - News apps only if applicable
 
-4. Review Store listing
+3. Review Store listing
 - Open `Grow > Store presence > Main store listing`
 - Confirm:
   - App name: `Radio FEM`
   - Category: `Music & Audio`
   - Contact email: `info@radio.forroemmilao.com`
   - Website: `https://radio.forroemmilao.com`
-- Add the privacy policy URL after it is public.
 - Privacy policy URL to use:
   - `https://radio.forroemmilao.com/privacy-policy.html`
-
-5. Move out of draft when Play Console shows all checks complete
-- Keep the current internal release as `draft` until all required declarations are accepted.
-- After the app is no longer marked as draft, a new release can be sent as `completed` to `internal`, `closed`, or `production`.
 
 Suggested Data safety review basis from the current codebase:
 - No account creation or login.
